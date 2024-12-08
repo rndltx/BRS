@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+/* Theme variables for CV. Berkat Rahmat Sejahtera */
+[data-theme="blue-ocean"] {
+  --primary-color: #1e3a8a;
+  --secondary-color: #3b82f6;
+}
+
+[data-theme="sand"] {
+  --primary-color: #92400e;
+  --secondary-color: #f59e0b;
+}
+
+[data-theme="green-forest"] {
+  --primary-color: #064e3b;
+  --secondary-color: #10b981;
+}
+
+[data-theme="blue-cloud"] {
+  --primary-color: #0369a1;
+  --secondary-color: #38bdf8;
+}
+
+[data-theme="black"] {
+  --primary-color: #18181b;
+  --secondary-color: #52525b;
+}
+
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(var(--background-end-rgb))
+  )
+  rgb(var(--background-start-rgb));
+  transition: background-color 0.3s ease-in-out;
+}
+
+.shadow-text {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Theme transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
