@@ -10,10 +10,21 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  image_url: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 function ProductsAdmin() {
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [editingProduct, setEditingProduct] = useState(null)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const { toast } = useToast()
 
   const fetchProducts = useCallback(async () => {
@@ -47,11 +58,10 @@ function ProductsAdmin() {
     const formData = new FormData(form)
 
     try {
-      const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products'
+      const url = editingProduct 
+        ? `/api/products?id=${editingProduct.id}` 
+        : '/api/products'
       const method = editingProduct ? 'PUT' : 'POST'
-
-      console.log('Submitting to:', url, 'Method:', method)
-      console.log('FormData:', Object.fromEntries(formData))
 
       const response = await fetch(url, {
         method: method,
@@ -64,8 +74,7 @@ function ProductsAdmin() {
       }
 
       const data = await response.json()
-      console.log('Response:', data)
-
+      
       toast({
         title: "Success",
         description: `Product ${editingProduct ? 'updated' : 'added'} successfully.`,
@@ -74,11 +83,13 @@ function ProductsAdmin() {
       setEditingProduct(null)
       form.reset()
       fetchProducts()
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving product:', error)
       toast({
         title: "Error",
-        description: error.message || `Failed to ${editingProduct ? 'update' : 'add'} product.`,
+        description: error instanceof Error 
+          ? error.message 
+          : `Failed to ${editingProduct ? 'update' : 'add'} product.`,
         variant: "destructive",
       })
     } finally {
@@ -86,11 +97,11 @@ function ProductsAdmin() {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/products/${id}`, {
+        const response = await fetch(`/api/products?id=${id}`, {
           method: 'DELETE',
         })
 
@@ -99,7 +110,7 @@ function ProductsAdmin() {
         }
 
         toast({
-          title: "Success",
+          title: "Success", 
           description: "Product deleted successfully.",
         })
 

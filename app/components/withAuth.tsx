@@ -3,8 +3,8 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function withAuth(WrappedComponent: React.ComponentType) {
-  return function AuthComponent(props: any) {
+export const withAuth = (Component: React.ComponentType<any>) => {
+  return function WithAuthComponent(props: any) {
     const router = useRouter()
 
     useEffect(() => {
@@ -14,7 +14,7 @@ export function withAuth(WrappedComponent: React.ComponentType) {
       }
     }, [router])
 
-    return <WrappedComponent {...props} />
+    return <Component {...props} />
   }
 }
 

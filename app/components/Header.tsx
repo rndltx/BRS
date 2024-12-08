@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, HTMLMotionProps } from 'framer-motion'
 import { Menu, X, ChevronUp } from 'lucide-react'
 import Logo from './Logo'
 import { smoothScroll } from '../utils/smoothScroll'
+
+// Add near top of file with other interfaces
+interface MotionButtonProps extends HTMLMotionProps<"button"> {
+  onClick?: () => void;
+}
+
+// Create typed motion button component
+const MotionButton = motion.button as React.ComponentType<MotionButtonProps>
 
 const navItems = [
   { name: 'Home', href: '/#home' },
@@ -158,7 +166,7 @@ export default function Header() {
       </header>
 
       {/* Enhanced scroll to top button */}
-      <motion.button
+      <MotionButton
         className="fixed bottom-6 right-6 p-3 rounded-full bg-gradient-to-r from-green-600 to-green-500 text-white shadow-lg hover:shadow-xl z-50 transform hover:-translate-y-1 transition-all duration-200"
         onClick={scrollToTop}
         initial={{ opacity: 0, scale: 0.5 }}
@@ -169,7 +177,7 @@ export default function Header() {
         transition={{ duration: 0.3 }}
       >
         <ChevronUp className="h-6 w-6" />
-      </motion.button>
+      </MotionButton>
     </>
   )
 }

@@ -32,21 +32,21 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const breadcrumbs = getBreadcrumbs()
 
   return (
-    <header className="bg-gradient-to-r from-white/80 via-gray-50/90 to-white/80 dark:from-gray-900/80 dark:via-gray-800/90 dark:to-gray-900/80 shadow-lg backdrop-blur-md border-b border-gray-200/80 dark:border-gray-700/80 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-18">
-          <div className="flex items-center">
+    <header className="bg-gradient-to-r from-white/80 via-gray-50/90 to-white/80 dark:from-gray-900/80 dark:via-gray-800/90 dark:to-gray-900/80 shadow-lg backdrop-blur-md border-b border-gray-200/80 dark:border-gray-700/80 sticky top-0 z-40">
+      <div className="mx-auto">
+        <div className="flex items-center justify-between h-14">
+          <div className="flex items-center pl-3">
             <button
               onClick={toggleSidebar}
-              className="p-2.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-300"
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-300"
             >
               <Menu className="h-5 w-5 transition-transform duration-200 hover:scale-110" aria-hidden="true" />
             </button>
-            <nav className="hidden md:flex ml-6">
-              <ol className="flex items-center space-x-3 text-sm font-medium">
+            <nav className="hidden md:flex ml-4">
+              <ol className="flex items-center space-x-2 text-sm font-medium">
                 {breadcrumbs.map((crumb, index) => (
                   <li key={index} className="flex items-center">
-                    {index > 0 && <ChevronRight size={14} className="mx-3 text-gray-400 dark:text-gray-500" />}
+                    {index > 0 && <ChevronRight size={12} className="mx-2 text-gray-400 dark:text-gray-500" />}
                     {index === breadcrumbs.length - 1 ? (
                       <span className="font-semibold text-gray-900 dark:text-white">{crumb.name}</span>
                     ) : (
@@ -59,27 +59,28 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
               </ol>
             </nav>
           </div>
-          <div className="flex items-center space-x-5">
+
+          <div className="flex items-center space-x-3 pr-4">
             <button
               onClick={() => setSearchOpen(!searchOpen)}
-              className="p-2.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-200"
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-200"
             >
               <Search className="h-5 w-5" aria-hidden="true" />
             </button>
-            <div className="hidden md:flex items-center space-x-4">
-              <button className="p-2.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-200">
+            <div className="hidden md:flex items-center space-x-2">
+              <button className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 transition-all duration-200">
                 <Bell className="h-5 w-5" aria-hidden="true" />
               </button>
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center p-1.5 rounded-full hover:ring-2 hover:ring-gray-200 dark:hover:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+                  className="flex items-center p-1 rounded-full hover:ring-2 hover:ring-gray-200 dark:hover:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
                 >
                   <span className="sr-only">Open user menu</span>
-                  <User className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 text-white p-1.5 transition-all duration-300 hover:shadow-lg hover:scale-105" aria-hidden="true" />
+                  <User className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 text-white p-1.5 transition-all duration-300 hover:shadow-lg hover:scale-105" aria-hidden="true" />
                 </button>
                 <AnimatePresence>
-                  {dropdownOpen && (
+                {dropdownOpen && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -116,7 +117,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
             transition={{ duration: 0.2 }}
             className="border-t border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md"
           >
-            <div className="max-w-7xl mx-auto flex items-center p-4">
+            <div className="mx-auto flex items-center p-3">
               <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" aria-hidden="true" />
               <input
                 type="text"

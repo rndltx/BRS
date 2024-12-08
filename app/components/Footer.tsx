@@ -20,7 +20,7 @@ export default function Footer() {
               About Us
             </h3>
             <p className="text-gray-400 leading-relaxed hover:text-gray-300 transition-colors duration-200">
-              {settings?.site_name || 'CV. BRS'} is a leading provider of innovative solutions for businesses across Indonesia.
+              {settings?.siteName || 'CV. BRS'} is a leading provider of innovative solutions for businesses across Indonesia.
             </p>
           </motion.div>
           
@@ -48,7 +48,7 @@ export default function Footer() {
             </ul>
           </motion.div>
 
-          {/* Contact Us section - Updated for MySQL */}
+          {/* Contact Us section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -63,10 +63,10 @@ export default function Footer() {
                 {settings?.address || 'Loading...'}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
-                Phone: {settings?.phone_number || 'Loading...'}
+                Phone: {settings?.phoneNumber || 'Loading...'}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
-                Email: {settings?.contact_email || 'Loading...'}
+                Email: {settings?.contactEmail || 'Loading...'}
               </p>
             </div>
           </motion.div>
@@ -102,7 +102,7 @@ export default function Footer() {
           className="mt-12 pt-8 border-t border-gray-700/50 text-center"
         >
           <p className="text-gray-400 hover:text-gray-300 transition-colors duration-200">
-            &copy; {new Date().getFullYear()} {settings?.site_name || 'CV. BRS'}. All rights reserved.
+            &copy; {new Date().getFullYear()} {settings?.siteName || 'CV. BRS'}. All rights reserved.
           </p>
         </motion.div>
       </div>

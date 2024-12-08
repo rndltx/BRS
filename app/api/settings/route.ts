@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 import pool from '../../lib/db'
+import { RowDataPacket, ResultSetHeader } from 'mysql2'
+
+interface DbSettings extends RowDataPacket {
+  id: number;
+  site_name: string;
+  contact_email: string;
+  phone_number: string;
+  address: string;
+  theme: 'light' | 'dark' | 'system';
+}
 
 interface Settings {
   siteName: string;
@@ -11,9 +21,9 @@ interface Settings {
 
 export async function GET() {
   try {
-    const [rows] = await pool.query('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
+    const [rows] = await pool.query<DbSettings[]>('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
     
-    if (!rows || rows.length === 0) {
+    if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({
         siteName: 'CV. Berkat Rahmat Sejahtera',
         contactEmail: 'info@cvbrs.com',
@@ -37,7 +47,6 @@ export async function POST(request: Request) {
   try {
     const settings: Settings = await request.json()
 
-    // Validate required fields
     if (!settings.siteName || !settings.contactEmail) {
       return NextResponse.json(
         { error: 'Site name and contact email are required' },
@@ -45,12 +54,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if settings exist
-    const [existing] = await pool.query('SELECT id FROM settings LIMIT 1')
+    const [existing] = await pool.query<DbSettings[]>('SELECT id FROM settings LIMIT 1')
 
-    if (existing && existing.length > 0) {
-      // Update existing settings
-      await pool.query(
+    if (Array.isArray(existing) && existing.length > 0) {
+      await pool.query<ResultSetHeader>(
         `UPDATE settings SET 
          site_name = ?,
          contact_email = ?,
@@ -68,8 +75,7 @@ export async function POST(request: Request) {
         ]
       )
     } else {
-      // Insert new settings
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         `INSERT INTO settings 
          (site_name, contact_email, phone_number, address, theme)
          VALUES (?, ?, ?, ?, ?)`,
@@ -83,8 +89,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Return updated settings
-    const [updated] = await pool.query('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
+    const [updated] = await pool.query<DbSettings[]>('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
     return NextResponse.json(updated[0])
 
   } catch (error) {

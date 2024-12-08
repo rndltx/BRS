@@ -1,7 +1,14 @@
+/* OrganizationalStructure.module.css */
 .orgChart {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 20px 0;
+}
+
+@media (min-width: 768px) {
+  .orgChart {
+    padding: 2rem 0;
+  }
 }
 
 .orgChart ul {

@@ -126,6 +126,7 @@ function LegalDocuments() {
   )
 }
 
+// Update usage in Home component
 export default function Home() {
   const { settings, isLoading } = useSettings()
   const { setTheme } = useTheme()
@@ -158,31 +159,12 @@ export default function Home() {
             className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto"
           >
             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 drop-shadow-xl">
-              {settings?.site_name || 'CV. Berkat Rahmat Sejahtera'}
+              {settings?.siteName || 'CV. Berkat Rahmat Sejahtera'}
             </h1>
-            <p className="text-xl sm:text-2xl md:text-3xl font-medium text-gray-200 drop-shadow-lg tracking-wide">
-              Innovative Solutions for a Sustainable Future
-            </p>
+            {/* Rest of the component */}
           </motion.div>
         </section>
-
-        <section id="about" className="py-24">
-          <VisionMission />
-        </section>
-
-        <OrganizationalStructure />
-
-        <section id="products" className="py-24">
-          <Products />
-        </section>
-
-        <section id="gallery" className="py-24">
-          <Gallery />
-        </section>
-
-        <LegalDocuments />
-
-        <VideoDocumentation />
+        {/* Rest of the sections */}
       </main>
       <Footer />
       <ThemeSwitcher />

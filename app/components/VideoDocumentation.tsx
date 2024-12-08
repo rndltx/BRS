@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, HTMLMotionProps } from 'framer-motion'
 import { Play } from 'lucide-react'
 import Image from 'next/image'
 import VideoModal from './VideoModal'
@@ -14,6 +14,13 @@ interface Video {
   views: number;
   created_at: string;
 }
+
+// Add type definition for motion div props
+interface MotionDivProps extends HTMLMotionProps<"div"> {
+  onClick?: () => void;
+}
+
+const MotionDiv = motion.div as React.ComponentType<MotionDivProps>
 
 export default function VideoDocumentation() {
   const [videos, setVideos] = useState<Video[]>([])
@@ -70,7 +77,7 @@ export default function VideoDocumentation() {
         </motion.h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {videos.map((video, index) => (
-            <motion.div
+            <MotionDiv
               key={video.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -104,17 +111,13 @@ export default function VideoDocumentation() {
                   {video.views.toLocaleString()} views
                 </p>
               </div>
-            </motion.div>
+            </MotionDiv>
           ))}
         </div>
       </div>
       {selectedVideo && (
         <VideoModal 
-          video={{
-            ...selectedVideo,
-            thumbnailUrl: selectedVideo.thumbnail_url,
-            videoUrl: selectedVideo.video_url
-          }} 
+          video={selectedVideo}  // Pass the video object directly since interfaces match
           onClose={() => setSelectedVideo(null)} 
         />
       )}

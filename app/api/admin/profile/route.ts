@@ -2,10 +2,19 @@
 import { NextResponse } from 'next/server'
 import pool from '../../../lib/db'
 import bcrypt from 'bcryptjs'
+import { RowDataPacket, ResultSetHeader } from 'mysql2'
+
+interface AdminUser extends RowDataPacket {
+  id: number
+  username: string
+  email: string
+  phone_number: string
+  password: string
+}
 
 export async function GET() {
   try {
-    const [rows] = await pool.query(
+    const [rows] = await pool.query<AdminUser[]>(
       'SELECT id, username, email, phone_number FROM admin_users WHERE id = ?',
       [1] // Replace with actual admin ID from session
     )
@@ -33,23 +42,30 @@ export async function PUT(request: Request) {
     const { currentPassword, newPassword, ...profile } = data
 
     // Update profile information
-    await pool.query(
+    await pool.query<ResultSetHeader>(
       `UPDATE admin_users 
        SET username = ?, email = ?, phone_number = ?
        WHERE id = ?`,
-      [profile.username, profile.email, profile.phone_number, 1] // Replace with actual admin ID
+      [profile.username, profile.email, profile.phone_number, 1]
     )
 
     // Update password if provided
     if (newPassword) {
-      const [user] = await pool.query(
+      const [rows] = await pool.query<AdminUser[]>(
         'SELECT password FROM admin_users WHERE id = ?',
-        [1] // Replace with actual admin ID
+        [1]
       )
+
+      if (!rows.length) {
+        return NextResponse.json(
+          { error: 'Admin not found' },
+          { status: 404 }
+        )
+      }
 
       const isValidPassword = await bcrypt.compare(
         currentPassword,
-        user[0].password
+        rows[0].password
       )
 
       if (!isValidPassword) {
@@ -60,15 +76,15 @@ export async function PUT(request: Request) {
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10)
-      await pool.query(
+      await pool.query<ResultSetHeader>(
         'UPDATE admin_users SET password = ? WHERE id = ?',
-        [hashedPassword, 1] // Replace with actual admin ID
+        [hashedPassword, 1]
       )
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ message: 'Profile updated successfully' })
   } catch (error) {
-    console.error('Database error:', error)
+    console.error('Update error:', error)
     return NextResponse.json(
       { error: 'Failed to update profile' },
       { status: 500 }

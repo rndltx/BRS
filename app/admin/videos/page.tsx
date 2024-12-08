@@ -9,13 +9,17 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 
+// Update page.tsx interface
 interface Video {
-  id: number;
-  title: string;
-  thumbnail_url: string;
-  video_url: string;
-  views: number;
-  created_at: string;
+  id: number
+  title: string
+  thumbnail_url: string
+  video_url: string
+  views: number
+  active: boolean
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
 function VideosAdmin() {
@@ -48,73 +52,80 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
+  // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    const form = e.target as HTMLFormElement
-    const formData = new FormData(form)
+    e.preventDefault();
+    setIsLoading(true);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    // If editing, add ID to formData and use PUT method
+    if (editingVideo) {
+      formData.append('id', editingVideo.id.toString());
+    }
 
     try {
-      const url = editingVideo ? `/api/videos/${editingVideo.id}` : '/api/videos'
-      const method = editingVideo ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method: method,
+      const response = await fetch('/api/videos', {
+        method: editingVideo ? 'PUT' : 'POST',
         body: formData,
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to save video')
+        throw new Error(editingVideo ? 'Failed to update video' : 'Failed to save video');
       }
 
       toast({
         title: "Success",
-        description: `Video ${editingVideo ? 'updated' : 'added'} successfully.`,
-      })
+        description: editingVideo ? "Video updated successfully." : "Video added successfully.",
+      });
 
-      setEditingVideo(null)
-      form.reset()
-      fetchVideos()
+      form.reset();
+      setEditingVideo(null);
+      fetchVideos();
     } catch (error) {
-      console.error('Error saving video:', error)
+      console.error('Error saving video:', error);
       toast({
         title: "Error",
-        description: `Failed to ${editingVideo ? 'update' : 'add'} video. Please try again.`,
+        description: error instanceof Error ? error.message : "Failed to save video",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update handleDelete in page.tsx
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this video?')) {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/videos?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete video')
+      }
+
+      toast({
+        title: "Success",
+        description: "Video deleted successfully.",
+      })
+
+      fetchVideos()
+    } catch (error) {
+      console.error('Error deleting video:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete video",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this video?')) {
-      setIsLoading(true)
-      try {
-        const response = await fetch(`/api/videos/${id}`, {
-          method: 'DELETE',
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to delete video')
-        }
-
-        toast({
-          title: "Success",
-          description: "Video deleted successfully.",
-        })
-
-        fetchVideos()
-      } catch (error) {
-        console.error('Error deleting video:', error)
-        toast({
-          title: "Error",
-          description: "Failed to delete video. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
     }
   }
 

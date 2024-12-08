@@ -1,10 +1,19 @@
-// Simplified version for this example
 import { useState } from 'react'
 
-export function useToast() {
-  const [, setToasts] = useState([])
+interface Toast {
+  title: string
+  description?: string
+  variant?: 'default' | 'destructive'
+}
 
-  const toast = ({ title, description, variant = "default" }) => {
+export function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const toast = ({ 
+    title, 
+    description, 
+    variant = "default" 
+  }: Toast) => {
     setToasts((prevToasts) => [
       ...prevToasts,
       { title, description, variant },
@@ -15,4 +24,3 @@ export function useToast() {
 
   return { toast }
 }
-

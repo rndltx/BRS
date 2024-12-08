@@ -11,7 +11,10 @@ import { useToast } from "../../components/ui/use-toast"
 interface SlideshowImage {
   id: number;
   image_url: string;
+  display_order: number;
+  active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 function SlideshowAdmin() {
@@ -87,8 +90,12 @@ function SlideshowAdmin() {
   }
 
   const handleImageDelete = async (imageId: number) => {
+    if (!window.confirm('Are you sure you want to delete this image?')) {
+      return
+    }
+
     try {
-      const response = await fetch(`/api/slideshow/${imageId}`, {
+      const response = await fetch(`/api/slideshow?id=${imageId}`, {
         method: 'DELETE',
       })
 
@@ -159,8 +166,7 @@ function SlideshowAdmin() {
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               <Button
                 variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 h-8 w-8" // Add explicit sizing classes
                 onClick={() => handleImageDelete(image.id)}
               >
                 <Trash2 className="h-4 w-4" />

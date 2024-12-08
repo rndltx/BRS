@@ -6,17 +6,18 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
 import Image from 'next/image'
 
-// Update interface
 interface GalleryImage {
-  id: number;
-  title: string;
-  image_url: string;
+  id: number
+  title: string
+  image_url: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
-// Update component with proper types
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -30,8 +31,7 @@ function GalleryAdmin() {
         throw new Error('Failed to fetch gallery images')
       }
       const data = await response.json()
-      setImages(data)
-      setIsLoading(false)
+      setImages(data.filter((img: GalleryImage) => !img.deleted_at))
     } catch (error) {
       console.error('Error fetching gallery images:', error)
       toast({
@@ -39,6 +39,7 @@ function GalleryAdmin() {
         description: "Failed to fetch gallery images. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }, [toast])
@@ -54,16 +55,20 @@ function GalleryAdmin() {
     const formData = new FormData(form)
 
     try {
-      const url = editingImage ? `/api/gallery/${editingImage.id}` : '/api/gallery'
+      const url = editingImage 
+        ? `/api/gallery?id=${editingImage.id}` 
+        : '/api/gallery'
+      
       const method = editingImage ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
-        method: method,
+        method,
         body: formData,
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save image')
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save image')
       }
 
       toast({
@@ -78,7 +83,7 @@ function GalleryAdmin() {
       console.error('Error saving image:', error)
       toast({
         title: "Error",
-        description: `Failed to ${editingImage ? 'update' : 'add'} image. Please try again.`,
+        description: error instanceof Error ? error.message : 'Failed to save image',
         variant: "destructive",
       })
     } finally {
@@ -87,38 +92,62 @@ function GalleryAdmin() {
   }
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this image?')) {
-      setIsLoading(true)
-      try {
-        const response = await fetch(`/api/gallery/${id}`, {
-          method: 'DELETE',
-        })
+    if (!window.confirm('Are you sure you want to delete this image?')) {
+      return
+    }
 
-        if (!response.ok) {
-          throw new Error('Failed to delete image')
-        }
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/gallery?id=${id}`, {
+        method: 'DELETE',
+      })
 
-        toast({
-          title: "Success",
-          description: "Image deleted successfully.",
-        })
-
-        fetchImages()
-      } catch (error) {
-        console.error('Error deleting image:', error)
-        toast({
-          title: "Error",
-          description: "Failed to delete image. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete image')
       }
+
+      toast({
+        title: "Success",
+        description: "Image deleted successfully.",
+      })
+
+      fetchImages()
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete image",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  const ImageWithFallback = ({ src, alt, ...props }: any) => {
+    const [error, setError] = useState(false)
+
+    if (error || !src) {
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-100 rounded-md">
+          <ImageOff className="w-12 h-12 text-gray-400" />
+        </div>
+      )
+    }
+
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        {...props}
+        onError={() => setError(true)}
+      />
+    )
+  }
+
   if (isLoading) {
-    return <div>Loading...</div>
+    return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
   return (
@@ -135,17 +164,23 @@ function GalleryAdmin() {
         <Input
           type="file"
           name="image"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/gif,image/webp"
           required={!editingImage}
         />
-        <Button type="submit" disabled={isLoading}>
-          {editingImage ? 'Update Image' : 'Add Image'}
-        </Button>
-        {editingImage && (
-          <Button type="button" variant="outline" onClick={() => setEditingImage(null)}>
-            Cancel Edit
+        <div className="flex gap-2">
+          <Button type="submit" disabled={isLoading}>
+            {editingImage ? 'Update Image' : 'Add Image'}
           </Button>
-        )}
+          {editingImage && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setEditingImage(null)}
+            >
+              Cancel Edit
+            </Button>
+          )}
+        </div>
       </form>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -156,15 +191,13 @@ function GalleryAdmin() {
             </CardHeader>
             <CardContent>
               <div className="relative h-48 mb-4">
-                {image.image_url && (
-                  <Image
-                    src={image.image_url}
-                    alt={image.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="rounded-md object-cover"
-                  />
-                )}
+                <ImageWithFallback
+                  src={image.image_url}
+                  alt={image.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="rounded-md object-cover"
+                />
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -172,7 +205,11 @@ function GalleryAdmin() {
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
-              <Button variant="destructive" onClick={() => handleDelete(image.id)}>
+              <Button 
+                variant="destructive" 
+                onClick={() => handleDelete(image.id)}
+                disabled={isLoading}
+              >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </Button>

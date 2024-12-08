@@ -1,6 +1,13 @@
-import { motion } from 'framer-motion'
+import { motion, HTMLMotionProps } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
+
+// Update interface with proper event type
+interface MotionDivProps extends HTMLMotionProps<"div"> {
+  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+}
+
+const MotionDiv = motion.div as React.ComponentType<MotionDivProps>
 
 interface Video {
   id: number;
@@ -17,12 +24,14 @@ interface VideoModalProps {
 
 export default function VideoModal({ video, onClose }: VideoModalProps) {
   useEffect(() => {
-    // Update view count when video is opened
     const updateViews = async () => {
       try {
-        await fetch(`/api/videos/${video.id}/views`, {
-          method: 'POST'
+        const response = await fetch(`/api/videos?id=${video.id}`, {
+          method: 'PATCH',
         })
+        if (!response.ok) {
+          throw new Error('Failed to update view count')
+        }
       } catch (error) {
         console.error('Failed to update view count:', error)
       }
@@ -31,20 +40,20 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
   }, [video.id])
 
   return (
-    <motion.div
+    <MotionDiv
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
-      <motion.div
+      <MotionDiv
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: "spring", duration: 0.5 }}
         className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         <div className="relative aspect-video">
           <video
@@ -74,8 +83,8 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
             </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </MotionDiv>
+    </MotionDiv>
   )
 }
 
