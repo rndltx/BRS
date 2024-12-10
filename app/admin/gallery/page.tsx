@@ -9,6 +9,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
 import Image from 'next/image'
 
+// Add domain constant
+const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'https://brs.rizsign.my.id'
+
 interface GalleryImage {
   id: number
   title: string
@@ -125,8 +128,12 @@ function GalleryAdmin() {
     }
   }
 
+  // Update ImageWithFallback component
   const ImageWithFallback = ({ src, alt, ...props }: any) => {
     const [error, setError] = useState(false)
+
+    // Convert relative path to full URL
+    const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
 
     if (error || !src) {
       return (
@@ -138,7 +145,7 @@ function GalleryAdmin() {
 
     return (
       <Image
-        src={src}
+        src={imageUrl}
         alt={alt}
         {...props}
         onError={() => setError(true)}
@@ -222,4 +229,3 @@ function GalleryAdmin() {
 }
 
 export default withAuth(GalleryAdmin)
-
