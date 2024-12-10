@@ -9,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
 import Image from 'next/image'
 
-// Add domain constant
+// Use domain from env
 const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'https://brs.rizsign.my.id'
 
 interface GalleryImage {
@@ -128,12 +128,10 @@ function GalleryAdmin() {
     }
   }
 
-  // Update ImageWithFallback component
+  // Update ImageWithFallback to always use full URLs
   const ImageWithFallback = ({ src, alt, ...props }: any) => {
     const [error, setError] = useState(false)
-
-    // Convert relative path to full URL
-    const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
+    const imageUrl = `${DOMAIN}${src}`
 
     if (error || !src) {
       return (
