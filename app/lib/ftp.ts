@@ -1,5 +1,6 @@
 // app/lib/ftp.ts
 import { Client } from 'basic-ftp'
+import { Readable } from 'stream'
 
 interface FtpConfig {
   host: string
@@ -55,7 +56,6 @@ export class FtpClient {
     }
   }
 
-  // Add deleteFile method
   async deleteFile(remotePath: string) {
     const client = await this.connect()
     try {
@@ -68,7 +68,9 @@ export class FtpClient {
   async uploadFromBuffer(buffer: Buffer, remotePath: string) {
     const client = await this.connect()
     try {
-      await client.uploadFrom(buffer, remotePath)
+      // Create readable stream from buffer
+      const readable = Readable.from(buffer)
+      await client.uploadFrom(readable, remotePath)
     } finally {
       client.close()
     }
