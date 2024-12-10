@@ -4,6 +4,7 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
+import { FtpClient } from '../../lib/ftp'
 
 interface Product extends RowDataPacket {
   id: number;
@@ -27,6 +28,13 @@ const getFileExtension = (filename: string) => {
   const ext = path.extname(filename).toLowerCase()
   return ext || '.jpg' // Default to .jpg if no extension
 }
+
+const ftpClient = new FtpClient({
+  host: process.env.FTP_HOST!,
+  user: process.env.FTP_USER!,
+  password: process.env.FTP_PASSWORD!,
+  secure: process.env.FTP_SECURE === 'true'
+})
 
 export async function GET() {
   try {
@@ -76,6 +84,13 @@ export async function POST(request: Request) {
     // Save image
     const buffer = Buffer.from(await image.arrayBuffer())
     await writeFile(absolutePath, buffer)
+
+    // Add FTP upload
+    try {
+      await ftpClient.uploadFile(absolutePath, `/public_html${relativePath}`)
+    } catch (ftpError) {
+      console.error('FTP upload error:', ftpError)
+    }
 
     // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
@@ -137,10 +152,22 @@ export async function PUT(request: Request) {
       await mkdir(UPLOAD_DIR, { recursive: true })
       await writeFile(absolutePath, buffer)
 
+      // Add FTP upload
+      try {
+        await ftpClient.uploadFile(absolutePath, `/public_html${imagePath}`)
+      } catch (ftpError) {
+        console.error('FTP upload error:', ftpError)
+      }
+
       // Delete old image
       const oldPath = path.join(process.cwd(), 'public', existing[0].image_url)
       if (existsSync(oldPath)) {
         await unlink(oldPath).catch(console.error)
+        try {
+          await ftpClient.deleteFile(`/public_html${existing[0].image_url}`)
+        } catch (ftpError) {
+          console.error('FTP deletion error:', ftpError)
+        }
       }
     }
 
@@ -192,6 +219,12 @@ export async function DELETE(request: Request) {
     const absolutePath = path.join(process.cwd(), 'public', rows[0].image_url)
     if (existsSync(absolutePath)) {
       await unlink(absolutePath).catch(console.error)
+      // Add FTP delete
+      try {
+        await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
+      } catch (ftpError) {
+        console.error('FTP deletion error:', ftpError)
+      }
     }
 
     return NextResponse.json({ message: 'Product deleted successfully' })
@@ -200,4 +233,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
   }
 }
-

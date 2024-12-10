@@ -4,6 +4,7 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
+import { FtpClient } from '../../lib/ftp'
 
 interface OrderResult extends RowDataPacket {
   maxOrder: number;
@@ -17,6 +18,13 @@ interface SlideshowImage extends RowDataPacket {
   created_at: string;
   updated_at: string;
 }
+
+const ftpClient = new FtpClient({
+  host: process.env.FTP_HOST!,
+  user: process.env.FTP_USER!,
+  password: process.env.FTP_PASSWORD!,
+  secure: process.env.FTP_SECURE === 'true'
+})
 
 export async function GET() {
   try {
@@ -52,11 +60,19 @@ export async function POST(request: Request) {
     const timestamp = Date.now()
     const filename = `${timestamp}-${image.name.replaceAll(' ', '_')}`
     const relativePath = `/uploads/slideshow/${filename}`
+    const absolutePath = path.join(process.cwd(), 'public', relativePath)
     
     await writeFile(
-      path.join(process.cwd(), 'public', relativePath),
+      absolutePath,
       Buffer.from(await image.arrayBuffer())
     )
+
+    // Upload to FTP
+    try {
+      await ftpClient.uploadFile(absolutePath, `/public_html${relativePath}`)
+    } catch (ftpError) {
+      console.error('FTP upload error:', ftpError)
+    }
 
     // Get max display order with proper typing
     const [orderResult] = await pool.query<OrderResult[]>(
@@ -120,6 +136,13 @@ export async function DELETE(request: Request) {
       await unlink(absolutePath)
     }
 
+    // Delete from FTP
+    try {
+      await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
+    } catch (ftpError) {
+      console.error('FTP deletion error:', ftpError)
+    }
+
     // Delete from database
     await pool.query('DELETE FROM slideshow WHERE id = ?', [id])
 
@@ -132,4 +155,3 @@ export async function DELETE(request: Request) {
     )
   }
 }
-
