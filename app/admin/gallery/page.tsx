@@ -7,7 +7,6 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
-import Image from 'next/image'
 
 // Update domain constant
 const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'https://rizsign.my.id'
@@ -129,7 +128,7 @@ function GalleryAdmin() {
   }
 
   // Update ImageWithFallback component
-  const ImageWithFallback = ({ src, alt, ...props }: any) => {
+  const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
     const [error, setError] = useState(false)
     // Convert relative path to full URL using new domain
     const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
@@ -143,11 +142,12 @@ function GalleryAdmin() {
     }
 
     return (
-      <Image
+      <img
         src={imageUrl}
         alt={alt}
-        {...props}
+        className={className}
         onError={() => setError(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     )
   }
@@ -200,9 +200,7 @@ function GalleryAdmin() {
                 <ImageWithFallback
                   src={image.image_url}
                   alt={image.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="rounded-md object-cover"
+                  className="rounded-md"
                 />
               </div>
             </CardContent>
