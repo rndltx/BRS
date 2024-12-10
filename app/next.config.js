@@ -6,11 +6,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'rizsign.my.id',
-        pathname: '/public/uploads/**',
+        hostname: 'brs.rizsign.my.id',
+        pathname: '/uploads/**',
       }
     ],
-    domains: ['brs.rizsign.my.id']
+    domains: ['rizsign.my.id']
   }
 }
 
