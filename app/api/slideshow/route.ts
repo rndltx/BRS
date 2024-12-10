@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir, unlink } from 'fs/promises'
-import path from 'path'
 import pool from '../../lib/db'
-import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
@@ -63,7 +60,10 @@ export async function POST(request: Request) {
       await ftpClient.uploadFromBuffer(buffer, `/public_html${relativePath}`)
     } catch (ftpError) {
       console.error('FTP upload error:', ftpError)
-      throw ftpError
+      return NextResponse.json(
+        { error: 'Failed to upload image to server' },
+        { status: 500 }
+      )
     }
 
     // Database operations
@@ -109,7 +109,7 @@ export async function DELETE(request: Request) {
     }
 
     // Get image info
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<SlideshowImage[]>(
       'SELECT * FROM slideshow WHERE id = ?',
       [id]
     )
@@ -121,11 +121,12 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Delete from FTP
+    // Delete from FTP first
     try {
       await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
     } catch (ftpError) {
       console.error('FTP deletion error:', ftpError)
+      // Continue with database deletion even if FTP fails
     }
 
     // Delete from database
