@@ -64,4 +64,13 @@ export class FtpClient {
       client.close()
     }
   }
+
+  async uploadFromBuffer(buffer: Buffer, remotePath: string) {
+    const client = await this.connect()
+    try {
+      await client.uploadFrom(buffer, remotePath)
+    } finally {
+      client.close()
+    }
+  }
 }
