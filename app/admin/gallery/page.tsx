@@ -8,9 +8,6 @@ import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
 
-// Update domain constant
-const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'https://rizsign.my.id'
-
 interface GalleryImage {
   id: number
   title: string
@@ -19,6 +16,9 @@ interface GalleryImage {
   updated_at: string
   deleted_at: string | null
 }
+
+// Add domain constant
+const DOMAIN = 'https://rizsign.my.id'
 
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -127,15 +127,14 @@ function GalleryAdmin() {
     }
   }
 
-  // Update ImageWithFallback component
+  // Updated ImageWithFallback component
   const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
     const [error, setError] = useState(false)
-    // Convert relative path to full URL using new domain
     const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
 
     if (error || !src) {
       return (
-        <div className="flex items-center justify-center h-full bg-gray-100 rounded-md">
+        <div className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-800 rounded-md">
           <ImageOff className="w-12 h-12 text-gray-400" />
         </div>
       )
@@ -147,6 +146,7 @@ function GalleryAdmin() {
         alt={alt}
         className={className}
         onError={() => setError(true)}
+        loading="lazy"
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     )

@@ -1,10 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion'
 
-// Create typed motion components
 interface MotionDivProps extends HTMLMotionProps<"div"> {
   onClick?: () => void;
 }
@@ -16,6 +14,8 @@ interface GalleryImage {
   title: string;
   image_url: string;
 }
+
+const DOMAIN = 'https://rizsign.my.id'
 
 export default function Gallery() {
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -82,12 +82,11 @@ export default function Gallery() {
             >
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all duration-300 z-10" />
               {image.image_url && (
-                <Image
-                  src={image.image_url}
+                <img
+                  src={`${DOMAIN}${image.image_url}`}
                   alt={image.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
                 />
               )}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
@@ -113,12 +112,11 @@ export default function Gallery() {
               className="relative w-full max-w-4xl h-full max-h-[80vh] rounded-xl overflow-hidden"
             >
               {selectedImage.image_url && (
-                <Image
-                  src={selectedImage.image_url}
+                <img
+                  src={`${DOMAIN}${selectedImage.image_url}`}
                   alt={selectedImage.title}
-                  fill
-                  className="object-contain backdrop-blur-sm"
-                  sizes="(max-width: 1536px) 100vw, 1536px"
+                  className="w-full h-full object-contain backdrop-blur-sm"
+                  loading="lazy"
                 />
               )}
               <button
