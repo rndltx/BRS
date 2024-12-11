@@ -105,6 +105,45 @@ function VideosAdmin() {
     return data
   }
 
+  // page.tsx - Client side upload
+  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
+    const chunkSize = 2 * 1024 * 1024 // 2MB chunks
+    const totalChunks = Math.ceil(file.size / chunkSize)
+    const fileId = Date.now().toString()
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize)
+      const formData = new FormData()
+      
+      formData.append('chunk', chunk)
+      formData.append('chunkIndex', i.toString())
+      formData.append('totalChunks', totalChunks.toString())
+      formData.append('fileId', fileId)
+
+      // Add metadata on final chunk
+      if (i === totalChunks - 1) {
+        formData.append('title', title)
+        formData.append('thumbnail', thumbnail)
+      }
+
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+
+      const data = await response.json()
+      setUploadProgress(data.progress || 0)
+
+      if (data.videoId) {
+        return data
+      }
+    }
+  }
+
   // Updated handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,7 +174,7 @@ function VideosAdmin() {
         setUploadProgress(10)
         
         // Upload video
-        const result = await uploadVideo(video, title, thumbnail)
+        const result = await uploadLargeVideo(video, title, thumbnail)
         
         // Show completion
         setUploadProgress(100)

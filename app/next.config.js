@@ -9,7 +9,7 @@ const nextConfig = {
         headers: [
           {
             key: 'x-vercel-max-body-size',
-            value: '6mb' // Slightly larger than chunk size
+            value: '3mb' // Slightly larger than chunk size
           }
         ],
       },
