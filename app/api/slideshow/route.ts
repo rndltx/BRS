@@ -56,11 +56,12 @@ export async function POST(request: Request) {
     const timestamp = Date.now()
     const filename = `${timestamp}-${image.name.replaceAll(' ', '_')}`
     const relativePath = `/uploads/slideshow/${filename}`
+    const fullRemotePath = `/public_html${relativePath}`
 
-    // Upload to FTP directly from buffer
+    // Upload to FTP
     try {
       const buffer = Buffer.from(await image.arrayBuffer())
-      await ftpClient.uploadFromBuffer(buffer, `/public_html${relativePath}`)
+      await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
     } catch (ftpError) {
       console.error('FTP upload error:', ftpError)
       throw ftpError
