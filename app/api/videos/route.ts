@@ -11,7 +11,7 @@ const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
 
 // Update FTP client
 const ftpClient = new FtpClient({
-  host: 'rizsign.my.id',
+  host: process.env.FTP_HOST!,
   user: process.env.FTP_USER!,
   password: process.env.FTP_PASSWORD!,
   secure: true,
