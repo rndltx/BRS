@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import path from 'path'
 import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
