@@ -1,5 +1,5 @@
 // middleware/auth.ts
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
 const corsHeaders = {
@@ -9,7 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Credentials': 'true',
 }
 
-export async function middleware(request: Request) {
+export async function middleware(request: NextRequest) {
   // Handle preflight requests
   if (request.method === 'OPTIONS') {
     return NextResponse.json({}, { headers: corsHeaders })
