@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 
 interface Settings {
   siteName: string;

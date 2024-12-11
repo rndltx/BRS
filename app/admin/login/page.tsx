@@ -6,7 +6,7 @@ import Logo from '../../components/Logo'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 
 interface LoginResponse {
   success: boolean;

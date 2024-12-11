@@ -4,6 +4,14 @@ import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
+// CORS configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
 interface GalleryImage extends RowDataPacket {
   id: number;
   title: string;
@@ -34,15 +42,20 @@ const ftpClient = new FtpClient({
   port: 21
 })
 
+// Handle OPTIONS request for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
 export async function GET() {
   try {
     const [rows] = await pool.query('SELECT * FROM gallery WHERE deleted_at IS NULL ORDER BY id DESC')
-    return NextResponse.json(rows)
+    return NextResponse.json(rows, { headers: corsHeaders })
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch gallery images' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -56,14 +69,14 @@ export async function POST(request: Request) {
     if (!title || !image) {
       return NextResponse.json(
         { error: 'Title and image are required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     if (!isValidImageType(image.type)) {
       return NextResponse.json(
         { error: 'Invalid image type. Supported formats: JPG, PNG, GIF, WebP' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -91,12 +104,15 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newImage[0], { status: 201 })
+    return NextResponse.json(newImage[0], { 
+      status: 201,
+      headers: corsHeaders 
+    })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save gallery image' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -112,7 +128,7 @@ export async function PUT(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Image ID is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -124,7 +140,7 @@ export async function PUT(request: Request) {
     if (!Array.isArray(existing) || existing.length === 0) {
       return NextResponse.json(
         { error: 'Image not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
 
@@ -134,7 +150,7 @@ export async function PUT(request: Request) {
       if (!isValidImageType(image.type)) {
         return NextResponse.json(
           { error: 'Invalid image type. Supported formats: JPG, PNG, GIF, WebP' },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         )
       }
 
@@ -170,12 +186,12 @@ export async function PUT(request: Request) {
       [id]
     )
 
-    return NextResponse.json(updated[0])
+    return NextResponse.json(updated[0], { headers: corsHeaders })
   } catch (error) {
     console.error('Update error:', error)
     return NextResponse.json(
       { error: 'Failed to update image' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -188,7 +204,7 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Image ID is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -200,7 +216,7 @@ export async function DELETE(request: Request) {
     if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Image not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
 
@@ -217,12 +233,12 @@ export async function DELETE(request: Request) {
       [id]
     )
 
-    return NextResponse.json({ message: 'Image deleted successfully' })
+    return NextResponse.json({ message: 'Image deleted successfully' }, { headers: corsHeaders })
   } catch (error) {
     console.error('Delete error:', error)
     return NextResponse.json(
       { error: 'Failed to delete image' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }

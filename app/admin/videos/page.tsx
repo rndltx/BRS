@@ -9,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
 
 interface Video {

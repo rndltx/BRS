@@ -9,7 +9,7 @@ import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 
 interface Product {
   id: number;

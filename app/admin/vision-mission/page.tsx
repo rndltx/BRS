@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/button"
 import { Textarea } from "../../components/ui/textarea"
 import { useToast } from "../../components/ui/use-toast"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 
 function VisionMissionAdmin() {
   const [visionMission, setVisionMission] = useState({ vision: '', mission: '' })

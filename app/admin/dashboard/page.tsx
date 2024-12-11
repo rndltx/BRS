@@ -6,7 +6,7 @@ import { ShoppingBag, Image, Video, Presentation } from 'lucide-react'
 import { withAuth } from '../../components/withAuth'
 
 // Add API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
 
 interface DashboardStats {
   products: number;
