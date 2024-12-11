@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 
 const DOMAIN = 'https://rizsign.my.id'
 
@@ -23,14 +24,13 @@ interface Video {
   deleted_at: string | null
 }
 
+// page.tsx - Add upload handling
 function VideosAdmin() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingVideo, setEditingVideo] = useState<Video | null>(null)
-  const { toast } = useToast()
-
-  // Update progress tracking
   const [uploadProgress, setUploadProgress] = useState(0)
+  const { toast } = useToast()
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -56,95 +56,53 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  // Updated uploadVideo function - simpler direct upload
-  async function uploadVideo(file: File, title: string, thumbnail: File) {
-    // Validate file sizes
-    const MAX_VIDEO_SIZE = 25 * 1024 * 1024 // 25MB
-    const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
-
-    if (file.size > MAX_VIDEO_SIZE) {
-      throw new Error(`Video must be smaller than ${MAX_VIDEO_SIZE / (1024 * 1024)}MB`)
-    }
-
-    if (thumbnail.size > MAX_THUMBNAIL_SIZE) {
-      throw new Error(`Thumbnail must be smaller than ${MAX_THUMBNAIL_SIZE / (1024 * 1024)}MB`)
-    }
-
-    // Validate file types
-    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg']
-    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-
-    if (!allowedVideoTypes.includes(file.type)) {
-      throw new Error('Invalid video type. Only MP4, WebM and OGG videos are allowed.')
-    }
-    if (!allowedImageTypes.includes(thumbnail.type)) {
-      throw new Error('Invalid thumbnail type. Only JPEG, PNG and WebP images are allowed.')
-    }
-
-    // Create FormData
-    const formData = new FormData()
-    formData.append('title', title)
-    formData.append('video', file)
-    formData.append('thumbnail', thumbnail)
-
-    const response = await fetch('/api/videos', {
-      method: 'POST',
-      body: formData,
-    })
-
-    const contentType = response.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid response format from server')
-    }
-
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.error || `Upload failed with status ${response.status}`)
-    }
-
-    return data
-  }
-
-  // page.tsx - Client side upload
-  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
+  async function uploadInChunks(file: File, title: string, thumbnail: File) {
     const chunkSize = 2 * 1024 * 1024 // 2MB chunks
     const totalChunks = Math.ceil(file.size / chunkSize)
     const fileId = Date.now().toString()
-    
-    for (let i = 0; i < totalChunks; i++) {
-      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize)
-      const formData = new FormData()
-      
-      formData.append('chunk', chunk)
-      formData.append('chunkIndex', i.toString())
-      formData.append('totalChunks', totalChunks.toString())
-      formData.append('fileId', fileId)
 
-      // Add metadata on final chunk
-      if (i === totalChunks - 1) {
-        formData.append('title', title)
-        formData.append('thumbnail', thumbnail)
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize
+        const end = Math.min(start + chunkSize, file.size)
+        const chunk = file.slice(start, end)
+        
+        const formData = new FormData()
+        formData.append('chunk', chunk)
+        formData.append('chunkIndex', i.toString())
+        formData.append('totalChunks', totalChunks.toString())
+        formData.append('fileId', fileId)
+
+        // Add metadata on last chunk
+        if (i === totalChunks - 1) {
+          formData.append('title', title)
+          formData.append('thumbnail', thumbnail)
+          formData.append('isLastChunk', 'true')
+        }
+
+        const response = await fetch('/api/videos', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error('Upload failed')
+        }
+
+        const data = await response.json()
+        setUploadProgress(Math.round((i + 1) / totalChunks * 100))
+
+        if (data.videoId) {
+          return data
+        }
       }
-
-      const response = await fetch('/api/videos', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        throw new Error('Upload failed')
-      }
-
-      const data = await response.json()
-      setUploadProgress(data.progress || 0)
-
-      if (data.videoId) {
-        return data
-      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      throw error
     }
   }
 
-  // Updated handleSubmit
+  // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -153,32 +111,15 @@ function VideosAdmin() {
     const form = e.target as HTMLFormElement
     const formData = new FormData(form)
     
-    const title = formData.get('title') as string
-    const video = formData.get('video') as File
-    const thumbnail = formData.get('thumbnail') as File
-
     try {
       if (editingVideo) {
-        // Handle edit case
-        const response = await fetch(`/api/videos?id=${editingVideo.id}`, {
-          method: 'PUT',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to update video')
-        }
+        // Handle edit case...
       } else {
-        // Show initial progress
-        setUploadProgress(10)
-        
-        // Upload video
-        const result = await uploadLargeVideo(video, title, thumbnail)
-        
-        // Show completion
-        setUploadProgress(100)
-        console.log('Upload completed, video ID:', result.videoId)
+        const title = formData.get('title') as string
+        const video = formData.get('video') as File
+        const thumbnail = formData.get('thumbnail') as File
+
+        await uploadInChunks(video, title, thumbnail)
       }
 
       toast({
@@ -191,7 +132,7 @@ function VideosAdmin() {
       setUploadProgress(0)
       fetchVideos()
     } catch (error) {
-      console.error('Error saving video:', error)
+      console.error('Error:', error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save video",
@@ -199,7 +140,6 @@ function VideosAdmin() {
       })
     } finally {
       setIsLoading(false)
-      setUploadProgress(0)
     }
   }
 
@@ -245,16 +185,6 @@ function VideosAdmin() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Video Management</h1>
-      
-      {/* Add file size warning */}
-      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg mb-6">
-        <p className="text-sm text-yellow-800 dark:text-yellow-200">
-          Note: Maximum file sizes - Video: 25MB, Thumbnail: 2MB
-          <br />
-          Supported formats - Video: MP4, WebM, OGG | Thumbnail: JPEG, PNG, WebP
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-6 mb-8">
         <Input
           type="text"
@@ -275,17 +205,14 @@ function VideosAdmin() {
           accept="video/*"
           required={!editingVideo}
         />
-
-        {/* Add progress bar */}
-        {uploadProgress > 0 && uploadProgress < 100 && (
-          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+        {uploadProgress > 0 && (
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
         )}
-
         <Button type="submit" disabled={isLoading}>
           {editingVideo ? 'Update Video' : 'Add Video'}
         </Button>

@@ -4,26 +4,24 @@ import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
-// Reduce size limits for Vercel
-const MAX_VIDEO_SIZE = 25 * 1024 * 1024 // 25MB for Vercel
-const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
-const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB per chunk
+// Add size limits
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024 // 5MB
+const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
 
+// Update FTP client
 const ftpClient = new FtpClient({
-  host: process.env.FTP_HOST!,
+  host: 'rizsign.my.id',
   user: process.env.FTP_USER!,
   password: process.env.FTP_PASSWORD!,
   secure: true,
   port: 21
 })
 
-// Add better validation
-const validateFile = (file: File, maxSize: number, allowedTypes: string[]) => {
+// Add size validation helper
+const validateFileSize = (file: File, maxSize: number, type: string) => {
   if (file.size > maxSize) {
-    throw new Error(`File size must be less than ${maxSize / (1024 * 1024)}MB`)
-  }
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`)
+    throw new Error(`${type} size must be less than ${maxSize / (1024 * 1024)}MB`)
   }
 }
 
@@ -61,35 +59,29 @@ export async function GET(request: Request) {
   }
 }
 
+// route.ts - Update POST handler
 export async function POST(request: Request) {
   try {
-    const contentType = request.headers.get('content-type')
-    if (!contentType?.includes('multipart/form-data')) {
-      return NextResponse.json(
-        { error: 'Invalid content type' },
-        { status: 400 }
-      )
+    const formData = await request.formData()
+    const chunkIndex = parseInt(formData.get('chunkIndex') as string)
+    const totalChunks = parseInt(formData.get('totalChunks') as string)
+    const fileId = formData.get('fileId') as string
+    const chunk = formData.get('chunk') as File
+    const isLastChunk = formData.get('isLastChunk') === 'true'
+
+    if (!chunks.has(fileId)) {
+      chunks.set(fileId, [])
     }
 
-    const formData = await request.formData()
-    const chunkIndex = formData.get('chunkIndex')
-    const totalChunks = formData.get('totalChunks')
-    const fileId = formData.get('fileId')
+    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
+    chunks.get(fileId)![chunkIndex] = chunkBuffer
 
-    // Handle chunked upload
-    if (chunkIndex && totalChunks && fileId) {
-      const chunk = formData.get('chunk') as File
-      if (!chunks.has(fileId as string)) {
-        chunks.set(fileId as string, [])
-      }
-      chunks.get(fileId as string)![Number(chunkIndex)] = Buffer.from(await chunk.arrayBuffer())
+    if (isLastChunk) {
+      const completeBuffer = Buffer.concat(chunks.get(fileId)!)
+      const title = formData.get('title') as string
+      const thumbnail = formData.get('thumbnail') as File
 
-      // If last chunk, process the complete file
-      if (Number(chunkIndex) === Number(totalChunks) - 1) {
-        const title = formData.get('title') as string
-        const thumbnail = formData.get('thumbnail') as File
-        const completeBuffer = Buffer.concat(chunks.get(fileId as string)!)
-
+      try {
         const timestamp = Date.now()
         const videoPath = `/uploads/videos/${timestamp}-${fileId}.mp4`
         const thumbnailPath = `/uploads/thumbnails/${timestamp}-thumb.jpg`
@@ -103,28 +95,30 @@ export async function POST(request: Request) {
         ])
 
         const [result] = await pool.query<ResultSetHeader>(
-          `INSERT INTO videos (title, thumbnail_url, video_url, views, active) 
+          `INSERT INTO videos (title, thumbnail_url, video_url, views, active)
            VALUES (?, ?, ?, 0, 1)`,
           [title, thumbnailPath, videoPath]
         )
 
-        chunks.delete(fileId as string)
+        chunks.delete(fileId)
+
         return NextResponse.json({
           success: true,
           videoId: result.insertId
         })
+      } catch (error) {
+        chunks.delete(fileId)
+        throw error
       }
-
-      return NextResponse.json({
-        success: true,
-        progress: Math.round((Number(chunkIndex) + 1) / Number(totalChunks) * 100)
-      })
     }
 
-    return NextResponse.json({ error: 'Invalid upload request' }, { status: 400 })
+    return NextResponse.json({
+      success: true,
+      progress: Math.round((chunkIndex + 1) / totalChunks * 100)
+    })
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Upload error:', error)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
 }
