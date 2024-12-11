@@ -18,8 +18,8 @@ const orgData: OrgMember[] = [
     icon: User
   },
   {
-    name: "Jane Smith",
-    position: "Ahmad Fanshury",
+    name: "Ahmad Fanshury",
+    position: "Wakil Direktur",
     photo: "/team/wakdir.jpg",
     icon: Users
   },
