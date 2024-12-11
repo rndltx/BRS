@@ -4,6 +4,7 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
+import { FtpClient } from '../../lib/ftp'
 
 interface OrderResult extends RowDataPacket {
   maxOrder: number;
@@ -17,6 +18,13 @@ interface SlideshowImage extends RowDataPacket {
   created_at: string;
   updated_at: string;
 }
+
+const ftpClient = new FtpClient({
+  host: process.env.FTP_HOST!,
+  user: process.env.FTP_USER!,
+  password: process.env.FTP_PASSWORD!,
+  secure: process.env.FTP_SECURE === 'true'
+})
 
 export async function GET() {
   try {
@@ -35,9 +43,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'slideshow')
-    await mkdir(uploadDir, { recursive: true })
-
     const formData = await request.formData()
     const image = formData.get('image') as File
 
@@ -48,23 +53,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // Save image file
     const timestamp = Date.now()
     const filename = `${timestamp}-${image.name.replaceAll(' ', '_')}`
     const relativePath = `/uploads/slideshow/${filename}`
-    
-    await writeFile(
-      path.join(process.cwd(), 'public', relativePath),
-      Buffer.from(await image.arrayBuffer())
-    )
 
-    // Get max display order with proper typing
+    // Upload to FTP directly from buffer
+    try {
+      const buffer = Buffer.from(await image.arrayBuffer())
+      await ftpClient.uploadFromBuffer(buffer, `/public_html${relativePath}`)
+    } catch (ftpError) {
+      console.error('FTP upload error:', ftpError)
+      throw ftpError
+    }
+
+    // Database operations
     const [orderResult] = await pool.query<OrderResult[]>(
       'SELECT COALESCE(MAX(display_order), -1) as maxOrder FROM slideshow'
     )
     const nextOrder = (orderResult[0].maxOrder + 1)
 
-    // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO slideshow (
         image_url, 
@@ -114,10 +121,11 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Delete file
-    const absolutePath = path.join(process.cwd(), 'public', rows[0].image_url)
-    if (existsSync(absolutePath)) {
-      await unlink(absolutePath)
+    // Delete from FTP
+    try {
+      await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
+    } catch (ftpError) {
+      console.error('FTP deletion error:', ftpError)
     }
 
     // Delete from database
