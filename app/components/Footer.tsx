@@ -1,9 +1,19 @@
 import { motion } from 'framer-motion'
 import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
+import { useEffect } from 'react'
 
 export default function Footer() {
-  const { settings } = useSettings()
+  const { settings, isLoading } = useSettings()
+
+  useEffect(() => {
+    console.log('Footer Settings:', settings)
+  }, [settings])
+
+  // Early return while loading
+  if (isLoading) {
+    return <div>Loading footer...</div>
+  }
 
   return (
     <footer className="bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-900 dark:to-black text-white py-16">
@@ -60,33 +70,25 @@ export default function Footer() {
             </h3>
             <div className="space-y-3 text-gray-400">
               <p className="hover:text-gray-300 transition-colors duration-200">
-                {settings?.address || 'Loading...'}
+                {settings?.address}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
                 Phone:{' '}
-                {settings?.phoneNumber ? (
-                  <a 
-                    href={`tel:${settings.phoneNumber.replace(/\s+/g, '')}`}
-                    className="hover:underline"
-                  >
-                    {settings.phoneNumber}
-                  </a>
-                ) : (
-                  'Loading...'
-                )}
+                <a 
+                  href={`tel:${settings?.phoneNumber?.replace(/\s+/g, '')}`}
+                  className="hover:underline"
+                >
+                  {settings?.phoneNumber}
+                </a>
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
                 Email:{' '}
-                {settings?.contactEmail ? (
-                  <a 
-                    href={`mailto:${settings.contactEmail}`}
-                    className="hover:underline"
-                  >
-                    {settings.contactEmail}
-                  </a>
-                ) : (
-                  'Loading...'
-                )}
+                <a 
+                  href={`mailto:${settings?.contactEmail}`}
+                  className="hover:underline"
+                >
+                  {settings?.contactEmail}
+                </a>
               </p>
             </div>
           </motion.div>
