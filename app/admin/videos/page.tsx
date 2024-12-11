@@ -92,12 +92,17 @@ function VideosAdmin() {
       body: formData,
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || `Upload failed with status ${response.status}`)
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid response format from server')
     }
 
-    return response.json()
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || `Upload failed with status ${response.status}`)
+    }
+
+    return data
   }
 
   // Updated handleSubmit

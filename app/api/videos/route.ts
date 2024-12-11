@@ -62,91 +62,91 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const chunks = new Map<string, Buffer[]>()
-  
   try {
     const formData = await request.formData()
-    const chunkIndex = parseInt(formData.get('chunkIndex') as string)
-    const totalChunks = parseInt(formData.get('totalChunks') as string)
-    const fileId = formData.get('fileId') as string
-    const chunk = formData.get('chunk') as File
-    const isLastChunk = chunkIndex === totalChunks - 1
+    const title = formData.get('title') as string
+    const video = formData.get('video') as File
+    const thumbnail = formData.get('thumbnail') as File
 
-    // Validate chunk
-    if (!chunk || !fileId) {
-      throw new Error('Missing required fields')
+    // Validate inputs
+    if (!title || !video || !thumbnail) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required fields' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
     }
 
-    // Initialize chunk array
-    if (!chunks.has(fileId)) {
-      chunks.set(fileId, [])
-    }
-
-    // Store chunk
-    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
-    chunks.get(fileId)![chunkIndex] = chunkBuffer
-
-    // Process complete file on last chunk
-    if (isLastChunk) {
-      const completeBuffer = Buffer.concat(chunks.get(fileId)!)
-      const title = formData.get('title') as string
-      const thumbnail = formData.get('thumbnail') as File
-
-      // Validate files
-      if (!title || !thumbnail) {
-        throw new Error('Missing title or thumbnail')
-      }
-
+    // Validate files
+    try {
+      validateFile(video, MAX_VIDEO_SIZE, ['video/mp4', 'video/webm', 'video/ogg'])
       validateFile(thumbnail, MAX_THUMBNAIL_SIZE, ['image/jpeg', 'image/png'])
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: error instanceof Error ? error.message : 'Invalid file' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
 
-      // Upload files
-      try {
-        const timestamp = Date.now()
-        const videoPath = `/uploads/videos/${timestamp}-${fileId}.mp4`
-        const thumbnailPath = `/uploads/thumbnails/${timestamp}-thumb.jpg`
+    // Upload files
+    try {
+      const timestamp = Date.now()
+      const videoPath = `/uploads/videos/${timestamp}-${video.name}`
+      const thumbnailPath = `/uploads/thumbnails/${timestamp}-${thumbnail.name}`
 
-        await Promise.all([
-          ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`),
-          ftpClient.uploadFromBuffer(
-            Buffer.from(await thumbnail.arrayBuffer()),
-            `/public_html${thumbnailPath}`
-          )
-        ])
-
-        // Save to database
-        const [result] = await pool.query<ResultSetHeader>(
-          `INSERT INTO videos (
-            title, thumbnail_url, video_url, views, active
-          ) VALUES (?, ?, ?, 0, 1)`,
-          [title, thumbnailPath, videoPath]
+      await Promise.all([
+        ftpClient.uploadFromBuffer(
+          Buffer.from(await video.arrayBuffer()),
+          `/public_html${videoPath}`
+        ),
+        ftpClient.uploadFromBuffer(
+          Buffer.from(await thumbnail.arrayBuffer()),
+          `/public_html${thumbnailPath}`
         )
+      ])
 
-        return NextResponse.json({
+      // Save to database
+      const [result] = await pool.query<ResultSetHeader>(
+        `INSERT INTO videos (
+          title, thumbnail_url, video_url, views, active
+        ) VALUES (?, ?, ?, 0, 1)`,
+        [title, thumbnailPath, videoPath]
+      )
+
+      return new NextResponse(
+        JSON.stringify({
           success: true,
           videoId: result.insertId
-        })
-      } finally {
-        // Cleanup
-        chunks.delete(fileId)
-      }
+        }),
+        { 
+          status: 201,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    } catch (error) {
+      console.error('Upload error:', error)
+      return new NextResponse(
+        JSON.stringify({ error: 'Failed to upload files' }), 
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
     }
-
-    // Return progress
-    return NextResponse.json({
-      success: true,
-      progress: Math.round((chunkIndex + 1) / totalChunks * 100)
-    })
 
   } catch (error) {
-    console.error('Upload error:', error)
-    
-    // Cleanup on error
-    if (chunks.size > 0) {
-      chunks.clear()
-    }
-
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Upload failed'
-    }, { status: 500 })
+    console.error('Request error:', error)
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal server error' }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    )
   }
 }
