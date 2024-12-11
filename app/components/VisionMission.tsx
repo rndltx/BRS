@@ -35,7 +35,6 @@ export default function VisionMission() {
     )
   }
 
-  // Split mission text into array of points
   const missionPoints = visionMission.mission.split('\n').filter(point => point.trim())
 
   return (

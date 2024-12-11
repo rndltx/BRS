@@ -7,7 +7,8 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import Image from 'next/image'
+
+const DOMAIN = 'https://rizsign.my.id'
 
 // Update page.tsx interface
 interface Video {
@@ -175,12 +176,11 @@ function VideosAdmin() {
             <CardContent>
               <div className="relative aspect-video w-full mb-4">
                 {video.thumbnail_url && (
-                  <Image
-                    src={video.thumbnail_url}
+                  <img
+                    src={`${DOMAIN}${video.thumbnail_url}`}
                     alt={video.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="rounded-md object-cover"
+                    className="absolute inset-0 w-full h-full rounded-md object-cover"
+                    loading="lazy"
                   />
                 )}
               </div>

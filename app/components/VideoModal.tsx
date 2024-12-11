@@ -9,6 +9,8 @@ interface MotionDivProps extends HTMLMotionProps<"div"> {
 
 const MotionDiv = motion.div as React.ComponentType<MotionDivProps>
 
+const DOMAIN = 'https://rizsign.my.id'
+
 interface Video {
   id: number;
   title: string;
@@ -57,8 +59,8 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
       >
         <div className="relative aspect-video">
           <video
-            src={video.video_url}
-            poster={video.thumbnail_url}
+            src={`${DOMAIN}${video.video_url}`}
+            poster={`${DOMAIN}${video.thumbnail_url}`}
             controls
             autoPlay
             playsInline
