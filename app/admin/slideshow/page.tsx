@@ -7,6 +7,8 @@ import { withAuth } from '../../components/withAuth'
 import { Button } from "../../components/ui/button"
 import { useToast } from "../../components/ui/use-toast"
 
+const API_BASE_URL = process.env.API_BASE_URL
+
 interface SlideshowImage {
   id: number;
   image_url: string;
@@ -25,13 +27,17 @@ function SlideshowAdmin() {
 
   const fetchImages = useCallback(async () => {
     try {
-      const response = await fetch('/api/slideshow')
+      const response = await fetch(`${API_BASE_URL}/slideshow`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch images')
       }
       const data = await response.json()
       setImages(data)
-      setIsLoading(false)
     } catch (error) {
       console.error('Error fetching images:', error)
       toast({
@@ -39,6 +45,7 @@ function SlideshowAdmin() {
         description: "Failed to fetch images. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }, [toast])
@@ -60,13 +67,15 @@ function SlideshowAdmin() {
     formData.append('image', file)
 
     try {
-      const response = await fetch('/api/slideshow', {
+      const response = await fetch(`${API_BASE_URL}/slideshow`, {
         method: 'POST',
         body: formData,
+        credentials: 'include'
       })
 
       if (!response.ok) {
-        throw new Error('Failed to upload image')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to upload image')
       }
 
       toast({
@@ -77,7 +86,7 @@ function SlideshowAdmin() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to upload image",
+        description: err instanceof Error ? err.message : "Failed to upload image",
         variant: "destructive",
       })
     } finally {
@@ -94,12 +103,17 @@ function SlideshowAdmin() {
     }
 
     try {
-      const response = await fetch(`/api/slideshow?id=${imageId}`, {
+      const response = await fetch(`${API_BASE_URL}/slideshow/${imageId}`, {
         method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete image')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete image')
       }
 
       toast({
@@ -110,7 +124,7 @@ function SlideshowAdmin() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to delete image",
+        description: err instanceof Error ? err.message : "Failed to delete image",
         variant: "destructive",
       })
     }
@@ -155,7 +169,9 @@ function SlideshowAdmin() {
           >
             <div className="relative aspect-video w-full overflow-hidden rounded-lg shadow-md">
               <img
-                src={`https://rizsign.my.id${image.image_url}`}
+                src={image.image_url.startsWith('https') 
+                  ? image.image_url 
+                  : `${API_BASE_URL}${image.image_url}`}
                 alt={`Slideshow image ${image.id}`}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />

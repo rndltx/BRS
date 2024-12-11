@@ -9,7 +9,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../comp
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
-// Update page.tsx interface
+const API_BASE_URL = process.env.API_BASE_URL
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+
 interface Video {
   id: number
   title: string
@@ -22,8 +24,6 @@ interface Video {
   deleted_at: string | null
 }
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-
 function VideosAdmin() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -33,13 +33,17 @@ function VideosAdmin() {
 
   const fetchVideos = useCallback(async () => {
     try {
-      const response = await fetch('/api/videos')
+      const response = await fetch(`${API_BASE_URL}/videos`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch videos')
       }
       const data = await response.json()
-      setVideos(data)
-      setIsLoading(false)
+      setVideos(data.filter((video: Video) => !video.deleted_at))
     } catch (error) {
       console.error('Error fetching videos:', error)
       toast({
@@ -47,6 +51,7 @@ function VideosAdmin() {
         description: "Failed to fetch videos. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }, [toast])
@@ -55,23 +60,21 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
     
-    // Validate file sizes
-    const thumbnail = formData.get('thumbnail') as File;
-    const video = formData.get('video') as File;
+    const thumbnail = formData.get('thumbnail') as File
+    const video = formData.get('video') as File
 
     if (thumbnail && thumbnail.size > MAX_FILE_SIZE) {
       toast({
         title: "Error",
         description: "Thumbnail must be smaller than 100MB",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
     if (video && video.size > MAX_FILE_SIZE) {
@@ -79,55 +82,48 @@ function VideosAdmin() {
         title: "Error",
         description: "Video must be smaller than 100MB",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
-    setIsSubmitting(true);
-
-    if (editingVideo) {
-      formData.append('id', editingVideo.id.toString());
-    }
+    setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/videos', {
+      const url = editingVideo 
+        ? `${API_BASE_URL}/videos/${editingVideo.id}`
+        : `${API_BASE_URL}/videos`
+
+      const response = await fetch(url, {
         method: editingVideo ? 'PUT' : 'POST',
         body: formData,
-      });
+        credentials: 'include'
+      })
 
-      // Check for non-JSON responses first
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`Server error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to save video');
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to save video')
       }
 
       toast({
         title: "Success",
         description: editingVideo ? "Video updated successfully." : "Video added successfully.",
-      });
+      })
 
-      form.reset();
-      setEditingVideo(null);
-      fetchVideos();
+      form.reset()
+      setEditingVideo(null)
+      fetchVideos()
     } catch (error) {
-      console.error('Error saving video:', error);
+      console.error('Error saving video:', error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save video",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
-  // Update handleDelete in page.tsx
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this video?')) {
       return
@@ -135,20 +131,23 @@ function VideosAdmin() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/videos?id=${id}`, {
+      const response = await fetch(`${API_BASE_URL}/videos/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to delete video')
+        throw new Error(error.message || 'Failed to delete video')
       }
 
       toast({
         title: "Success",
         description: "Video deleted successfully.",
       })
-
       fetchVideos()
     } catch (error) {
       console.error('Error deleting video:', error)
@@ -230,7 +229,9 @@ function VideosAdmin() {
               <div className="relative aspect-video w-full mb-4">
                 {video.thumbnail_url && (
                   <Image
-                    src={video.thumbnail_url}
+                    src={video.thumbnail_url.startsWith('http') 
+                      ? video.thumbnail_url 
+                      : `${API_BASE_URL}${video.thumbnail_url}`}
                     alt={video.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

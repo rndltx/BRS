@@ -7,6 +7,8 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 
+const API_BASE_URL = process.env.API_BASE_URL
+
 interface Settings {
   siteName: string;
   contactEmail: string;
@@ -28,10 +30,17 @@ function AdminSettings() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/settings')
+      const response = await fetch(`${API_BASE_URL}/settings`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
       if (!response.ok) {
         throw new Error('Failed to fetch settings')
       }
+      
       const data = await response.json()
       setSettings(data)
     } catch (error) {
@@ -60,16 +69,18 @@ function AdminSettings() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(settings),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update settings')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update settings')
       }
 
       const updatedSettings = await response.json()
@@ -83,7 +94,7 @@ function AdminSettings() {
       console.error('Error updating settings:', error)
       toast({
         title: "Error",
-        description: "Failed to update settings. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update settings",
         variant: "destructive",
       })
     } finally {
@@ -190,4 +201,3 @@ function AdminSettings() {
 }
 
 export default withAuth(AdminSettings)
-
