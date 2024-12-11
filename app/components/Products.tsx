@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 
 interface Product {
@@ -74,12 +73,11 @@ export default function Products() {
             >
               <div className="relative h-64 overflow-hidden group">
                 {product.image_url && (
-                  <Image
-                    src={product.image_url}
+                  <img
+                    src={`https://rizsign.my.id${product.image_url}`}
                     alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover transform group-hover:scale-110 transition-transform duration-500"
+                    className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
