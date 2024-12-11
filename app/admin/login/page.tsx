@@ -6,6 +6,8 @@ import Logo from '../../components/Logo'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
+const API_BASE_URL = process.env.API_BASE_URL
+
 interface LoginResponse {
   success: boolean;
   token?: string;
@@ -16,18 +18,21 @@ export default function AdminLogin() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ username, password }),
       })
 
@@ -37,13 +42,19 @@ export default function AdminLogin() {
         throw new Error(data.error || 'Login failed')
       }
 
-      if (data.success && data.token) {
-        localStorage.setItem('adminToken', data.token)
+      if (data.success) {
+        // Store any necessary auth data
+        if (data.token) {
+          localStorage.setItem('adminToken', data.token)
+        }
         router.push('/admin/dashboard')
+        router.refresh()
       }
     } catch (error) {
       console.error('Login error:', error)
       setError('Invalid username or password')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -104,9 +115,12 @@ export default function AdminLogin() {
 
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+              disabled={isLoading}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
+                isLoading ? 'opacity-75 cursor-not-allowed' : ''
+              }`}
             >
-              Sign in
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
         </div>
@@ -114,4 +128,3 @@ export default function AdminLogin() {
     </div>
   )
 }
-

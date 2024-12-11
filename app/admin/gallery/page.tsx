@@ -17,8 +17,7 @@ interface GalleryImage {
   deleted_at: string | null
 }
 
-// Add domain constant
-const DOMAIN = 'https://rizsign.my.id'
+const API_BASE_URL = process.env.API_BASE_URL  
 
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -28,7 +27,12 @@ function GalleryAdmin() {
 
   const fetchImages = useCallback(async () => {
     try {
-      const response = await fetch('/api/gallery')
+      const response = await fetch(`${API_BASE_URL}/gallery`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch gallery images')
       }
@@ -58,14 +62,15 @@ function GalleryAdmin() {
 
     try {
       const url = editingImage 
-        ? `/api/gallery?id=${editingImage.id}` 
-        : '/api/gallery'
+        ? `${API_BASE_URL}/gallery/${editingImage.id}` 
+        : `${API_BASE_URL}/gallery`
       
       const method = editingImage ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
         body: formData,
+        credentials: 'include'
       })
 
       if (!response.ok) {
@@ -100,8 +105,12 @@ function GalleryAdmin() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/gallery?id=${id}`, {
+      const response = await fetch(`${API_BASE_URL}/gallery/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
       if (!response.ok) {
@@ -127,10 +136,9 @@ function GalleryAdmin() {
     }
   }
 
-  // Updated ImageWithFallback component
   const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
     const [error, setError] = useState(false)
-    const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
+    const imageUrl = src.startsWith('http') ? src : `${API_BASE_URL}${src}`
 
     if (error || !src) {
       return (
