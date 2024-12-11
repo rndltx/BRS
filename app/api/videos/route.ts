@@ -1,31 +1,17 @@
-import { NextResponse } from 'next/server'
-import path from 'path'
-import pool from '../../lib/db'
-import { RowDataPacket, ResultSetHeader } from 'mysql2'
-import { FtpClient } from '../../lib/ftp'
+'use client'
 
-// Add size limits
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024 // 500MB
-const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024 // 5MB
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
+import { useState, useEffect, useCallback } from 'react'
+import { withAuth } from '../../components/withAuth'
+import { Button } from "../../components/ui/button"
+import { Input } from "../../components/ui/input"
+import { useToast } from "../../components/ui/use-toast"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
+import { Plus, Edit, Trash2 } from 'lucide-react'
 
-// Update FTP client
-const ftpClient = new FtpClient({
-  host: 'rizsign.my.id',
-  user: process.env.FTP_USER!,
-  password: process.env.FTP_PASSWORD!,
-  secure: true,
-  port: 21
-})
+const DOMAIN = 'https://rizsign.my.id'
 
-// Add size validation helper
-const validateFileSize = (file: File, maxSize: number, type: string) => {
-  if (file.size > maxSize) {
-    throw new Error(`${type} size must be less than ${maxSize / (1024 * 1024)}MB`)
-  }
-}
-
-interface Video extends RowDataPacket {
+// Update page.tsx interface
+interface Video {
   id: number
   title: string
   thumbnail_url: string
@@ -37,94 +23,225 @@ interface Video extends RowDataPacket {
   deleted_at: string | null
 }
 
-// Add chunk handling
-interface ChunkData {
-  chunkIndex: number;
-  totalChunks: number;
-  fileId: string;
-  chunk: Buffer;
-}
+function VideosAdmin() {
+  const [videos, setVideos] = useState<Video[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null)
+  const { toast } = useToast()
 
-const chunks = new Map<string, Buffer[]>();
-
-export async function GET(request: Request) {
-  try {
-    const [rows] = await pool.query(
-      'SELECT * FROM videos WHERE deleted_at IS NULL ORDER BY created_at DESC'
-    )
-    return NextResponse.json(rows)
-  } catch (error) {
-    console.error('Database error:', error)
-    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const formData = await request.formData();
-    const chunkIndex = parseInt(formData.get('chunkIndex') as string);
-    const totalChunks = parseInt(formData.get('totalChunks') as string);
-    const fileId = formData.get('fileId') as string;
-    const chunk = formData.get('chunk') as File;
-    const isLastChunk = chunkIndex === totalChunks - 1;
-
-    // Handle chunk storage
-    if (!chunks.has(fileId)) {
-      chunks.set(fileId, []);
+  const fetchVideos = useCallback(async () => {
+    try {
+      const response = await fetch('/api/videos')
+      if (!response.ok) {
+        throw new Error('Failed to fetch videos')
+      }
+      const data = await response.json()
+      setVideos(data)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Error fetching videos:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch videos. Please try again.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
     }
+  }, [toast])
 
-    const chunkBuffer = Buffer.from(await chunk.arrayBuffer());
-    chunks.get(fileId)![chunkIndex] = chunkBuffer;
+  useEffect(() => {
+    fetchVideos()
+  }, [fetchVideos])
 
-    // If this is the last chunk, process the complete file
-    if (isLastChunk) {
-      const completeBuffer = Buffer.concat(chunks.get(fileId)!);
-      const title = formData.get('title') as string;
-      const thumbnail = formData.get('thumbnail') as File;
+  // Function to update progress
+  function updateProgress(progress: number) {
+    console.log(`Upload progress: ${progress}%`);
+  }
 
-      // Upload complete video
-      const timestamp = Date.now();
-      const videoFilename = `${timestamp}-${fileId}.mp4`;
-      const videoPath = `/uploads/videos/${videoFilename}`;
+  // Client-side upload function
+  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
+    const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+    const fileId = Math.random().toString(36).substring(7);
+    const totalChunks = Math.ceil(file.size / chunkSize);
 
-      await ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`);
-
-      // Handle thumbnail
-      const thumbnailBuffer = Buffer.from(await thumbnail.arrayBuffer());
-      const thumbnailFilename = `${timestamp}-thumbnail.jpg`;
-      const thumbnailPath = `/uploads/thumbnails/${thumbnailFilename}`;
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+      const formData = new FormData();
       
-      await ftpClient.uploadFromBuffer(thumbnailBuffer, `/public_html${thumbnailPath}`);
+      formData.append('chunk', chunk);
+      formData.append('chunkIndex', i.toString());
+      formData.append('totalChunks', totalChunks.toString());
+      formData.append('fileId', fileId);
 
-      // Save to database
-      const [result] = await pool.query<ResultSetHeader>(
-        `INSERT INTO videos (
-          title, thumbnail_url, video_url, views, active, created_at, updated_at
-        ) VALUES (?, ?, ?, 0, 1, NOW(), NOW())`,
-        [title, thumbnailPath, videoPath]
-      );
+      // Add title and thumbnail on last chunk
+      if (i === totalChunks - 1) {
+        formData.append('title', title);
+        formData.append('thumbnail', thumbnail);
+      }
 
-      // Cleanup chunks
-      chunks.delete(fileId);
-
-      return NextResponse.json({ 
-        success: true,
-        message: 'Video uploaded successfully',
-        videoId: result.insertId
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        body: formData
       });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      // Update progress UI
+      updateProgress(data.progress);
+    }
+  }
+
+  // Update handleSubmit in page.tsx
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    // If editing, add ID to formData and use PUT method
+    if (editingVideo) {
+      formData.append('id', editingVideo.id.toString());
     }
 
-    // Return progress for non-final chunks
-    return NextResponse.json({ 
-      success: true,
-      progress: (chunkIndex + 1) / totalChunks * 100 
-    });
+    try {
+      const response = await fetch('/api/videos', {
+        method: editingVideo ? 'PUT' : 'POST',
+        body: formData,
+      });
 
-  } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ 
-      error: 'Upload failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+      if (!response.ok) {
+        throw new Error(editingVideo ? 'Failed to update video' : 'Failed to save video');
+      }
+
+      toast({
+        title: "Success",
+        description: editingVideo ? "Video updated successfully." : "Video added successfully.",
+      });
+
+      form.reset();
+      setEditingVideo(null);
+      fetchVideos();
+    } catch (error) {
+      console.error('Error saving video:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save video",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update handleDelete in page.tsx
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this video?')) {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/videos?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete video')
+      }
+
+      toast({
+        title: "Success",
+        description: "Video deleted successfully.",
+      })
+
+      fetchVideos()
+    } catch (error) {
+      console.error('Error deleting video:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete video",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Video Management</h1>
+      <form onSubmit={handleSubmit} className="space-y-6 mb-8">
+        <Input
+          type="text"
+          name="title"
+          placeholder="Video Title"
+          defaultValue={editingVideo?.title || ''}
+          required
+        />
+        <Input
+          type="file"
+          name="thumbnail"
+          accept="image/*"
+          required={!editingVideo}
+        />
+        <Input
+          type="file"
+          name="video"
+          accept="video/*"
+          required={!editingVideo}
+        />
+        <Button type="submit" disabled={isLoading}>
+          {editingVideo ? 'Update Video' : 'Add Video'}
+        </Button>
+        {editingVideo && (
+          <Button type="button" variant="outline" onClick={() => setEditingVideo(null)}>
+            Cancel Edit
+          </Button>
+        )}
+      </form>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {videos.map((video) => (
+          <Card key={video.id}>
+            <CardHeader>
+              <CardTitle>{video.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative aspect-video w-full mb-4">
+                {video.thumbnail_url && (
+                  <img
+                    src={`${DOMAIN}${video.thumbnail_url}`}
+                    alt={video.title}
+                    className="absolute inset-0 w-full h-full rounded-md object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{video.views} views</p>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => setEditingVideo(video)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+              <Button variant="destructive" onClick={() => handleDelete(video.id)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
 }
+
+export default withAuth(VideosAdmin)
