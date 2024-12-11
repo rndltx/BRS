@@ -4,6 +4,26 @@ import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
+// Add size limits
+const MAX_VIDEO_SIZE = 200 * 1024 * 1024 // 200MB
+const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024 // 5MB
+
+// Update FTP client
+const ftpClient = new FtpClient({
+  host: process.env.FTP_HOST!,
+  user: process.env.FTP_USER!,
+  password: process.env.FTP_PASSWORD!,
+  secure: true,
+  port: 21
+})
+
+// Add size validation helper
+const validateFileSize = (file: File, maxSize: number, type: string) => {
+  if (file.size > maxSize) {
+    throw new Error(`${type} size must be less than ${maxSize / (1024 * 1024)}MB`)
+  }
+}
+
 interface Video extends RowDataPacket {
   id: number
   title: string
@@ -15,14 +35,6 @@ interface Video extends RowDataPacket {
   updated_at: string
   deleted_at: string | null
 }
-
-const ftpClient = new FtpClient({
-  host: process.env.FTP_HOST!,
-  user: process.env.FTP_USER!,
-  password: process.env.FTP_PASSWORD!,
-  secure: true,
-  port: 21
-})
 
 export async function GET(request: Request) {
   try {
@@ -43,9 +55,21 @@ export async function POST(request: Request) {
     const thumbnail = formData.get('thumbnail') as File
     const video = formData.get('video') as File
 
+    // Validate inputs
     if (!title || !thumbnail || !video) {
       return NextResponse.json(
         { error: 'All fields are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate file sizes
+    try {
+      validateFileSize(thumbnail, MAX_THUMBNAIL_SIZE, 'Thumbnail')
+      validateFileSize(video, MAX_VIDEO_SIZE, 'Video')
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Invalid file size' },
         { status: 400 }
       )
     }
@@ -57,24 +81,24 @@ export async function POST(request: Request) {
     const thumbnailPath = `/uploads/thumbnails/${thumbnailFilename}`
     const videoPath = `/uploads/videos/${videoFilename}`
 
-    // Upload thumbnail to FTP
+    // Upload files with improved error handling
     try {
       const thumbnailBuffer = Buffer.from(await thumbnail.arrayBuffer())
-      await ftpClient.uploadFromBuffer(thumbnailBuffer, `/public_html${thumbnailPath}`)
-    } catch (ftpError) {
-      console.error('FTP thumbnail upload error:', ftpError)
-      throw ftpError
-    }
-
-    // Upload video to FTP
-    try {
       const videoBuffer = Buffer.from(await video.arrayBuffer())
-      await ftpClient.uploadFromBuffer(videoBuffer, `/public_html${videoPath}`)
+
+      await Promise.all([
+        ftpClient.uploadFromBuffer(thumbnailBuffer, `/public_html${thumbnailPath}`),
+        ftpClient.uploadFromBuffer(videoBuffer, `/public_html${videoPath}`)
+      ])
     } catch (ftpError) {
-      console.error('FTP video upload error:', ftpError)
-      throw ftpError
+      console.error('FTP upload error:', ftpError)
+      return NextResponse.json(
+        { error: 'Failed to upload files. Please try again.' },
+        { status: 500 }
+      )
     }
 
+    // Save to database
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO videos (
         title, thumbnail_url, video_url, views, active, created_at, updated_at
@@ -127,6 +151,14 @@ export async function PUT(request: Request) {
     let thumbnailPath = existing[0].thumbnail_url
     let videoPath = existing[0].video_url
 
+    // Validate sizes if files provided
+    if (thumbnail) {
+      validateFileSize(thumbnail, MAX_THUMBNAIL_SIZE, 'Thumbnail')
+    }
+    if (video) {
+      validateFileSize(video, MAX_VIDEO_SIZE, 'Video')
+    }
+
     if (thumbnail && thumbnail.size > 0) {
       const timestamp = Date.now()
       const thumbnailFilename = `${timestamp}-${thumbnail.name.replaceAll(' ', '_')}`
@@ -177,7 +209,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error('Update error:', error)
     return NextResponse.json(
-      { error: 'Failed to update video' },
+      { error: error instanceof Error ? error.message : 'Failed to update video' },
       { status: 500 }
     )
   }
