@@ -5,6 +5,9 @@ import { motion, HTMLMotionProps } from 'framer-motion'
 import { ShoppingBag, Image, Video, Presentation } from 'lucide-react'
 import { withAuth } from '../../components/withAuth'
 
+// Add API base URL
+const API_BASE_URL = 'https://rizsign.my.id/api'
+
 interface DashboardStats {
   products: number;
   gallery: number;
@@ -22,12 +25,26 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/dashboard/stats')
-        if (!response.ok) throw new Error('Failed to fetch stats')
+        const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            // Add any required authentication headers
+            // 'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include', // Handle cookies if needed
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.message || 'Failed to fetch stats')
+        }
+
         const data = await response.json()
         setStats(data)
       } catch (err) {
-        setError('Failed to fetch dashboard data')
+        console.error('Dashboard stats error:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data')
       } finally {
         setIsLoading(false)
       }
@@ -40,6 +57,22 @@ function AdminDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <div className="text-red-500 text-center">
+          <p>Error: {error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -128,4 +161,3 @@ function AdminDashboard() {
 }
 
 export default withAuth(AdminDashboard)
-
