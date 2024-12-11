@@ -53,6 +53,11 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
+  // Function to update progress
+  function updateProgress(progress: number) {
+    console.log(`Upload progress: ${progress}%`);
+  }
+
   // Client-side upload function
   async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
     const chunkSize = 5 * 1024 * 1024; // 5MB chunks
