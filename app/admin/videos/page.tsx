@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
 // Update page.tsx interface
@@ -22,10 +22,13 @@ interface Video {
   deleted_at: string | null
 }
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
 function VideosAdmin() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingVideo, setEditingVideo] = useState<Video | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
   const fetchVideos = useCallback(async () => {
@@ -55,11 +58,33 @@ function VideosAdmin() {
   // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
+    
+    // Validate file sizes
+    const thumbnail = formData.get('thumbnail') as File;
+    const video = formData.get('video') as File;
 
-    // If editing, add ID to formData and use PUT method
+    if (thumbnail && thumbnail.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Error",
+        description: "Thumbnail must be smaller than 100MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (video && video.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Error",
+        description: "Video must be smaller than 100MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
     if (editingVideo) {
       formData.append('id', editingVideo.id.toString());
     }
@@ -71,7 +96,8 @@ function VideosAdmin() {
       });
 
       if (!response.ok) {
-        throw new Error(editingVideo ? 'Failed to update video' : 'Failed to save video');
+        const error = await response.json();
+        throw new Error(error.error || (editingVideo ? 'Failed to update video' : 'Failed to save video'));
       }
 
       toast({
@@ -90,7 +116,7 @@ function VideosAdmin() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -143,24 +169,45 @@ function VideosAdmin() {
           placeholder="Video Title"
           defaultValue={editingVideo?.title || ''}
           required
+          disabled={isSubmitting}
         />
-        <Input
-          type="file"
-          name="thumbnail"
-          accept="image/*"
-          required={!editingVideo}
-        />
-        <Input
-          type="file"
-          name="video"
-          accept="video/*"
-          required={!editingVideo}
-        />
-        <Button type="submit" disabled={isLoading}>
-          {editingVideo ? 'Update Video' : 'Add Video'}
+        <div className="space-y-2">
+          <Input
+            type="file"
+            name="thumbnail"
+            accept="image/*"
+            required={!editingVideo}
+            disabled={isSubmitting}
+          />
+          <p className="text-sm text-gray-500">Max size: 100MB</p>
+        </div>
+        <div className="space-y-2">
+          <Input
+            type="file"
+            name="video"
+            accept="video/*"
+            required={!editingVideo}
+            disabled={isSubmitting}
+          />
+          <p className="text-sm text-gray-500">Max size: 100MB</p>
+        </div>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {editingVideo ? 'Updating...' : 'Saving...'}
+            </>
+          ) : (
+            editingVideo ? 'Update Video' : 'Add Video'
+          )}
         </Button>
         {editingVideo && (
-          <Button type="button" variant="outline" onClick={() => setEditingVideo(null)}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setEditingVideo(null)}
+            disabled={isSubmitting}
+          >
             Cancel Edit
           </Button>
         )}
@@ -187,11 +234,19 @@ function VideosAdmin() {
               <p className="text-sm text-gray-600 dark:text-gray-400">{video.views} views</p>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => setEditingVideo(video)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setEditingVideo(video)}
+                disabled={isSubmitting}
+              >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
-              <Button variant="destructive" onClick={() => handleDelete(video.id)}>
+              <Button 
+                variant="destructive" 
+                onClick={() => handleDelete(video.id)}
+                disabled={isSubmitting}
+              >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </Button>
