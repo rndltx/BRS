@@ -63,10 +63,30 @@ export default function Footer() {
                 {settings?.address || 'Loading...'}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
-                Phone: {settings?.phoneNumber || 'Loading...'}
+                Phone:{' '}
+                {settings?.phoneNumber ? (
+                  <a 
+                    href={`tel:${settings.phoneNumber.replace(/\s+/g, '')}`}
+                    className="hover:underline"
+                  >
+                    {settings.phoneNumber}
+                  </a>
+                ) : (
+                  'Loading...'
+                )}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
-                Email: {settings?.contactEmail || 'Loading...'}
+                Email:{' '}
+                {settings?.contactEmail ? (
+                  <a 
+                    href={`mailto:${settings.contactEmail}`}
+                    className="hover:underline"
+                  >
+                    {settings.contactEmail}
+                  </a>
+                ) : (
+                  'Loading...'
+                )}
               </p>
             </div>
           </motion.div>
