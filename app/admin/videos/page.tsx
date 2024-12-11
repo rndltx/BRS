@@ -7,7 +7,6 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import Image from 'next/image'
 
 const DOMAIN = 'https://rizsign.my.id'
 

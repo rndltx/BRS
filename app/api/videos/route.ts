@@ -69,22 +69,55 @@ export async function POST(request: Request) {
     const chunk = formData.get('chunk') as File
     const isLastChunk = formData.get('isLastChunk') === 'true'
 
-    if (!chunks.has(fileId)) {
-      chunks.set(fileId, [])
+    // Validate required fields
+    if (!fileId || !chunk || isNaN(chunkIndex) || isNaN(totalChunks)) {
+      return NextResponse.json({ 
+        error: 'Missing required fields' 
+      }, { status: 400 })
     }
 
-    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
-    chunks.get(fileId)![chunkIndex] = chunkBuffer
+    // Initialize chunk array if needed
+    if (!chunks.has(fileId)) {
+      chunks.set(fileId, Array(totalChunks))
+    }
 
+    // Store chunk
+    const chunkArray = chunks.get(fileId)
+    if (!chunkArray) {
+      return NextResponse.json({ 
+        error: 'Invalid file ID' 
+      }, { status: 400 })
+    }
+
+    // Add chunk to array
+    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
+    chunkArray[chunkIndex] = chunkBuffer
+
+    // Process complete file if this is the last chunk
     if (isLastChunk) {
-      const completeBuffer = Buffer.concat(chunks.get(fileId)!)
+      // Verify all chunks are present
+      if (chunkArray.some(chunk => !chunk)) {
+        chunks.delete(fileId)
+        return NextResponse.json({ 
+          error: 'Missing chunks' 
+        }, { status: 400 })
+      }
+
       const title = formData.get('title') as string
       const thumbnail = formData.get('thumbnail') as File
+
+      if (!title || !thumbnail) {
+        chunks.delete(fileId)
+        return NextResponse.json({ 
+          error: 'Missing title or thumbnail' 
+        }, { status: 400 })
+      }
 
       try {
         const timestamp = Date.now()
         const videoPath = `/uploads/videos/${timestamp}-${fileId}.mp4`
         const thumbnailPath = `/uploads/thumbnails/${timestamp}-thumb.jpg`
+        const completeBuffer = Buffer.concat(chunkArray)
 
         await Promise.all([
           ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`),
@@ -112,6 +145,7 @@ export async function POST(request: Request) {
       }
     }
 
+    // Return progress for non-final chunks
     return NextResponse.json({
       success: true,
       progress: Math.round((chunkIndex + 1) / totalChunks * 100)
@@ -119,6 +153,8 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Upload failed' 
+    }, { status: 500 })
   }
 }
