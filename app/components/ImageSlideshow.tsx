@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 
 interface SlideshowImage {
   id: number;
@@ -14,6 +15,14 @@ export default function ImageSlideshow() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const nextSlide = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length)
+  }
+
+  const prevSlide = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -94,15 +103,55 @@ export default function ImageSlideshow() {
         ))}
       </AnimatePresence>
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/50"></div>
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/70"></div>
 
+      {/* Company Info Overlay */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-4"
+      >
+        <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
+          CV. Berkat Rahmat Sejahtera
+        </h1>
+        <p className="max-w-2xl text-lg md:text-xl text-gray-200 mb-8">
+          Perusahaan yang bergerak di berbagai bidang strategis untuk mendukung kebutuhan masyarakat modern, 
+          mulai dari teknologi hingga pengembangan sumber daya manusia.
+        </p>
+        <div className="flex gap-4">
+          <button className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 transition">
+            Tentang Kami
+          </button>
+          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+            Hubungi Kami
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Navigation Arrows */}
+      <button
+        onClick={prevSlide}
+        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 rounded-full text-white backdrop-blur-sm transition"
+      >
+        <FiChevronLeft size={24} />
+      </button>
+      <button
+        onClick={nextSlide}
+        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 rounded-full text-white backdrop-blur-sm transition"
+      >
+        <FiChevronRight size={24} />
+      </button>
+
+      {/* Dots Navigation */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
         {images.map((_, index) => (
-          <div
+          <button
             key={index}
+            onClick={() => setCurrentImageIndex(index)}
             className={`w-2 h-2 rounded-full transition-all duration-300 ${
               index === currentImageIndex 
-                ? 'bg-white w-4' 
+                ? 'bg-white w-8' 
                 : 'bg-white/50 hover:bg-white/75'
             }`}
           />

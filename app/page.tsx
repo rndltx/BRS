@@ -1,4 +1,4 @@
-  'use client'
+'use client'
 
   import { useEffect, useState } from 'react'
   import { useTheme } from 'next-themes'
@@ -151,17 +151,49 @@
         <main className="flex-grow pt-16 sm:pt-20">
           <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
             <ImageSlideshow />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60 backdrop-blur-sm"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/70"></div>
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto"
             >
-              <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 drop-shadow-xl">
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="text-5xl sm:text-6xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 drop-shadow-xl"
+              >
                 {settings?.siteName || 'CV. Berkat Rahmat Sejahtera'}
-              </h1>
-              {/* Rest of the component */}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-8 max-w-3xl mx-auto leading-relaxed"
+              >
+                Perusahaan yang bergerak di berbagai bidang strategis untuk mendukung kebutuhan masyarakat modern, 
+                mulai dari teknologi hingga pengembangan sumber daya manusia.
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center"
+              >
+                <a 
+                  href="#about"
+                  className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 transition-all duration-300 text-lg font-semibold"
+                >
+                  Tentang Kami
+                </a>
+                <a 
+                  href="#products"
+                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-300 text-lg font-semibold shadow-lg hover:shadow-xl"
+                >
+                  Produk Kami
+                </a>
+              </motion.div>
             </motion.div>
           </section>
           <section id="about">
