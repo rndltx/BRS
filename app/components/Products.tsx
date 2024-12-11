@@ -34,13 +34,13 @@ const Modal = ({ product, isOpen, onClose }: ModalProps) => {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto"
+          className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         >
-          <div className="relative">
+          <div className="relative w-full h-[400px]">
             <img
               src={`https://rizsign.my.id${product.image_url}`}
               alt={product.name}
-              className="w-full h-[300px] object-cover"
+              className="w-full h-full object-contain bg-gray-900"
             />
             <button
               onClick={onClose}
@@ -49,7 +49,7 @@ const Modal = ({ product, isOpen, onClose }: ModalProps) => {
               <FiX size={24} />
             </button>
           </div>
-          <div className="p-8">
+          <div className="p-8 overflow-y-auto">
             <h3 className="text-3xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               {product.name}
             </h3>
@@ -159,7 +159,7 @@ export default function Products() {
                   <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                     {product.name}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 line-clamp-3 mb-6">
+                  <p className="text-gray-600 dark:text-gray-300 line-clamp-2 mb-6 h-12">
                     {product.description}
                   </p>
                   <button 
