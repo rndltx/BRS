@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface SlideshowImage {
@@ -84,13 +83,11 @@ export default function ImageSlideshow() {
               transition={{ duration: 1 }}
               className="absolute inset-0"
             >
-              <Image
-                src={image.image_url}
+              <img
+                src={`https://rizsign.my.id${image.image_url}`}
                 alt={`Slideshow image ${index + 1}`}
-                fill
-                sizes="100vw"
-                priority={index === 0}
-                className="object-cover"
+                className="w-full h-full object-cover"
+                loading={index === 0 ? "eager" : "lazy"}
               />
             </motion.div>
           )
