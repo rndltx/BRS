@@ -6,6 +6,14 @@ import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
+// CORS configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
 interface OrderResult extends RowDataPacket {
   maxOrder: number;
 }
@@ -26,17 +34,22 @@ const ftpClient = new FtpClient({
   secure: process.env.FTP_SECURE === 'true'
 })
 
+// Handle OPTIONS request for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
 export async function GET() {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM slideshow WHERE active = 1 ORDER BY display_order ASC, created_at DESC'
     )
-    return NextResponse.json(rows)
+    return NextResponse.json(rows, { headers: corsHeaders })
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch slideshow images' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -49,7 +62,7 @@ export async function POST(request: Request) {
     if (!image) {
       return NextResponse.json(
         { error: 'No image provided' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -58,7 +71,6 @@ export async function POST(request: Request) {
     const relativePath = `/uploads/slideshow/${filename}`
     const fullRemotePath = `/public_html${relativePath}`
 
-    // Upload to FTP
     try {
       const buffer = Buffer.from(await image.arrayBuffer())
       await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
@@ -67,7 +79,6 @@ export async function POST(request: Request) {
       throw ftpError
     }
 
-    // Database operations
     const [orderResult] = await pool.query<OrderResult[]>(
       'SELECT COALESCE(MAX(display_order), -1) as maxOrder FROM slideshow'
     )
@@ -87,12 +98,15 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newImage[0], { status: 201 })
+    return NextResponse.json(newImage[0], { 
+      status: 201,
+      headers: corsHeaders 
+    })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save image' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -105,11 +119,10 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Image ID is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
-    // Get image info
     const [rows]: any = await pool.query(
       'SELECT * FROM slideshow WHERE id = ?',
       [id]
@@ -118,26 +131,27 @@ export async function DELETE(request: Request) {
     if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Image not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
 
-    // Delete from FTP
     try {
       await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
     } catch (ftpError) {
       console.error('FTP deletion error:', ftpError)
     }
 
-    // Delete from database
     await pool.query('DELETE FROM slideshow WHERE id = ?', [id])
 
-    return NextResponse.json({ message: 'Image deleted successfully' })
+    return NextResponse.json(
+      { message: 'Image deleted successfully' },
+      { headers: corsHeaders }
+    )
   } catch (error) {
     console.error('Delete error:', error)
     return NextResponse.json(
       { error: 'Failed to delete image' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }

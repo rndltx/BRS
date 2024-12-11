@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir, unlink } from 'fs/promises'
 import path from 'path'
 import pool from '../../lib/db'
-import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
+
+// CORS configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+}
 
 interface Product extends RowDataPacket {
   id: number;
@@ -17,41 +23,44 @@ interface Product extends RowDataPacket {
   deleted_at: string | null;
 }
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'products')
-
-// Helper to validate image URLs and file types
+// Helper functions
 const isValidImageType = (type: string) => {
   return ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(type)
 }
 
 const getFileExtension = (filename: string) => {
   const ext = path.extname(filename).toLowerCase()
-  return ext || '.jpg' // Default to .jpg if no extension
+  return ext || '.jpg'
 }
 
 const ftpClient = new FtpClient({
   host: process.env.FTP_HOST!,
   user: process.env.FTP_USER!,
   password: process.env.FTP_PASSWORD!,
-  secure: process.env.FTP_SECURE === 'true'
+  secure: true,
+  port: 21
 })
+
+// Handle OPTIONS request for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
 
 export async function GET() {
   try {
     const [rows] = await pool.query<Product[]>(
       'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id DESC'
     )
-    return NextResponse.json(rows)
+    return NextResponse.json(rows, { headers: corsHeaders })
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch products' }, 
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
 
-// Update POST handler's file upload section
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
@@ -62,36 +71,33 @@ export async function POST(request: Request) {
     if (!name || !description || !image) {
       return NextResponse.json(
         { error: 'Name, description and image are required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     if (!isValidImageType(image.type)) {
       return NextResponse.json(
         { error: 'Invalid image type. Supported formats: JPG, PNG, GIF, WebP' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
+    const buffer = Buffer.from(await image.arrayBuffer())
     const ext = getFileExtension(image.name)
     const filename = `${Date.now()}-${image.name.replace(/\.[^/.]+$/, '')}${ext}`
     const relativePath = `/uploads/products/${filename}`
     const fullRemotePath = `/public_html${relativePath}`
 
-    // Upload to FTP
     try {
-      const buffer = Buffer.from(await image.arrayBuffer())
       await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
     } catch (ftpError) {
       console.error('FTP upload error:', ftpError)
       throw ftpError
     }
 
-    // Save to database
     const [result] = await pool.query<ResultSetHeader>(
-      `INSERT INTO products (
-        name, description, image_url, active, created_at, updated_at
-      ) VALUES (?, ?, ?, 1, NOW(), NOW())`,
+      `INSERT INTO products (name, description, image_url, active, created_at, updated_at) 
+       VALUES (?, ?, ?, 1, NOW(), NOW())`,
       [name, description, relativePath]
     )
 
@@ -100,24 +106,26 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newProduct[0], { status: 201 })
+    return NextResponse.json(newProduct[0], { 
+      status: 201, 
+      headers: corsHeaders 
+    })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save product' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
 
-// Update PUT handler's file upload section
 export async function PUT(request: Request) {
   try {
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
     
     if (!id) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400, headers: corsHeaders })
     }
 
     const formData = await request.formData()
@@ -132,7 +140,7 @@ export async function PUT(request: Request) {
     )
 
     if (!Array.isArray(existing) || existing.length === 0) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404, headers: corsHeaders })
     }
 
     let imagePath = existing[0].image_url
@@ -171,22 +179,21 @@ export async function PUT(request: Request) {
       [id]
     )
 
-    return NextResponse.json(updated[0])
+    return NextResponse.json(updated[0], { headers: corsHeaders })
 
   } catch (error) {
     console.error('Update error:', error)
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500, headers: corsHeaders })
   }
 }
 
-// Update DELETE handler
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400, headers: corsHeaders })
     }
 
     // Check if product exists
@@ -196,7 +203,7 @@ export async function DELETE(request: Request) {
     )
 
     if (!rows || rows.length === 0) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404, headers: corsHeaders })
     }
 
     // Delete from FTP first
@@ -212,9 +219,9 @@ export async function DELETE(request: Request) {
       [id]
     )
 
-    return NextResponse.json({ message: 'Product deleted successfully' })
+    return NextResponse.json({ message: 'Product deleted successfully' }, { headers: corsHeaders })
   } catch (error) {
     console.error('Delete error:', error)
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500, headers: corsHeaders })
   }
 }

@@ -6,6 +6,14 @@ import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
+// CORS configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
 interface Video extends RowDataPacket {
   id: number
   title: string
@@ -27,15 +35,23 @@ const ftpClient = new FtpClient({
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
 
-export async function GET(request: Request) {
+// Handle OPTIONS request for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
+export async function GET() {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM videos WHERE deleted_at IS NULL ORDER BY created_at DESC'
     )
-    return NextResponse.json(rows)
+    return NextResponse.json(rows, { headers: corsHeaders })
   } catch (error) {
     console.error('Database error:', error)
-    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch videos' }, 
+      { status: 500, headers: corsHeaders }
+    )
   }
 }
 
@@ -57,7 +73,7 @@ export async function POST(request: Request) {
     if (!title || !thumbnail || !video) {
       return NextResponse.json(
         { error: 'All fields are required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -65,14 +81,14 @@ export async function POST(request: Request) {
     if (thumbnail.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'Thumbnail file size must be less than 100MB' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     if (video.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'Video file size must be less than 100MB' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -123,12 +139,15 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newVideo[0], { status: 201 })
+    return NextResponse.json(newVideo[0], { 
+      status: 201, 
+      headers: corsHeaders 
+    })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save video' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -141,7 +160,7 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Video ID is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -154,7 +173,7 @@ export async function DELETE(request: Request) {
     if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
 
@@ -188,12 +207,12 @@ export async function DELETE(request: Request) {
       }
     }
 
-    return NextResponse.json({ message: 'Video deleted successfully' })
+    return NextResponse.json({ message: 'Video deleted successfully' }, { headers: corsHeaders })
   } catch (error) {
     console.error('Delete error:', error)
     return NextResponse.json(
       { error: 'Failed to delete video' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -210,7 +229,7 @@ export async function PUT(request: Request) {
     if (!id || !title) {
       return NextResponse.json(
         { error: 'ID and title are required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -223,7 +242,7 @@ export async function PUT(request: Request) {
     if (!Array.isArray(existing) || existing.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -235,7 +254,7 @@ export async function PUT(request: Request) {
       if (thumbnail.size > MAX_FILE_SIZE) {
         return NextResponse.json(
           { error: 'Thumbnail file size must be less than 100MB' },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         )
       }
     }
@@ -244,7 +263,7 @@ export async function PUT(request: Request) {
       if (video.size > MAX_FILE_SIZE) {
         return NextResponse.json(
           { error: 'Video file size must be less than 100MB' },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         )
       }
     }
@@ -331,16 +350,16 @@ export async function PUT(request: Request) {
     if (!Array.isArray(updated) || updated.length === 0) {
       return NextResponse.json(
         { error: 'Failed to retrieve updated video' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
-    return NextResponse.json(updated[0]);
+    return NextResponse.json(updated[0], { headers: corsHeaders });
   } catch (error) {
     console.error('Update error:', error);
     return NextResponse.json(
       { error: 'Failed to update video' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -353,7 +372,7 @@ export async function PATCH(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Video ID is required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -372,16 +391,16 @@ export async function PATCH(request: Request) {
     if (!Array.isArray(updated) || updated.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       )
     }
 
-    return NextResponse.json(updated[0])
+    return NextResponse.json(updated[0], { headers: corsHeaders })
   } catch (error) {
     console.error('View update error:', error)
     return NextResponse.json(
       { error: 'Failed to update view count' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
