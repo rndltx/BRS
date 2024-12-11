@@ -7,8 +7,7 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-
-const DOMAIN = 'https://rizsign.my.id'
+import Image from 'next/image'
 
 // Update page.tsx interface
 interface Video {
@@ -23,12 +22,10 @@ interface Video {
   deleted_at: string | null
 }
 
-// page.tsx - Add upload handling
 function VideosAdmin() {
   const [videos, setVideos] = useState<Video[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingVideo, setEditingVideo] = useState<Video | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const { toast } = useToast()
 
   const fetchVideos = useCallback(async () => {
@@ -55,92 +52,47 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  async function uploadInChunks(file: File, title: string, thumbnail: File) {
-    const chunkSize = 2 * 1024 * 1024 // 2MB chunks
-    const totalChunks = Math.ceil(file.size / chunkSize)
-    const fileId = Date.now().toString()
-
-    try {
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize
-        const end = Math.min(start + chunkSize, file.size)
-        const chunk = file.slice(start, end)
-        
-        const formData = new FormData()
-        formData.append('chunk', chunk)
-        formData.append('chunkIndex', i.toString())
-        formData.append('totalChunks', totalChunks.toString())
-        formData.append('fileId', fileId)
-
-        // Add metadata on last chunk
-        if (i === totalChunks - 1) {
-          formData.append('title', title)
-          formData.append('thumbnail', thumbnail)
-          formData.append('isLastChunk', 'true')
-        }
-
-        const response = await fetch('/api/videos', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error('Upload failed')
-        }
-
-        const data = await response.json()
-        setUploadProgress(Math.round((i + 1) / totalChunks * 100))
-
-        if (data.videoId) {
-          return data
-        }
-      }
-    } catch (error) {
-      console.error('Upload error:', error)
-      throw error
-    }
-  }
-
   // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setUploadProgress(0)
+    e.preventDefault();
+    setIsLoading(true);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
 
-    const form = e.target as HTMLFormElement
-    const formData = new FormData(form)
-    
+    // If editing, add ID to formData and use PUT method
+    if (editingVideo) {
+      formData.append('id', editingVideo.id.toString());
+    }
+
     try {
-      if (editingVideo) {
-        // Handle edit case...
-      } else {
-        const title = formData.get('title') as string
-        const video = formData.get('video') as File
-        const thumbnail = formData.get('thumbnail') as File
+      const response = await fetch('/api/videos', {
+        method: editingVideo ? 'PUT' : 'POST',
+        body: formData,
+      });
 
-        await uploadInChunks(video, title, thumbnail)
+      if (!response.ok) {
+        throw new Error(editingVideo ? 'Failed to update video' : 'Failed to save video');
       }
 
       toast({
         title: "Success",
         description: editingVideo ? "Video updated successfully." : "Video added successfully.",
-      })
+      });
 
-      form.reset()
-      setEditingVideo(null)
-      setUploadProgress(0)
-      fetchVideos()
+      form.reset();
+      setEditingVideo(null);
+      fetchVideos();
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error saving video:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save video",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Update handleDelete in page.tsx
   const handleDelete = async (id: number) => {
@@ -204,14 +156,6 @@ function VideosAdmin() {
           accept="video/*"
           required={!editingVideo}
         />
-        {uploadProgress > 0 && (
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        )}
         <Button type="submit" disabled={isLoading}>
           {editingVideo ? 'Update Video' : 'Add Video'}
         </Button>
@@ -231,11 +175,12 @@ function VideosAdmin() {
             <CardContent>
               <div className="relative aspect-video w-full mb-4">
                 {video.thumbnail_url && (
-                  <img
-                    src={`${DOMAIN}${video.thumbnail_url}`}
+                  <Image
+                    src={video.thumbnail_url}
                     alt={video.title}
-                    className="absolute inset-0 w-full h-full rounded-md object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="rounded-md object-cover"
                   />
                 )}
               </div>
@@ -259,4 +204,3 @@ function VideosAdmin() {
 }
 
 export default withAuth(VideosAdmin)
-
