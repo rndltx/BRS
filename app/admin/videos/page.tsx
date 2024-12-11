@@ -56,26 +56,34 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  // Updated uploadLargeVideo function
+  // Updated uploadLargeVideo function with smaller chunks and retries
   async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
-    const chunkSize = 5 * 1024 * 1024 // 5MB chunks
+    const chunkSize = 2 * 1024 * 1024 // 2MB chunks
     const fileId = Math.random().toString(36).substring(7)
     const totalChunks = Math.ceil(file.size / chunkSize)
+    const maxRetries = 3
 
-    try {
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize
-        const end = Math.min(start + chunkSize, file.size)
-        const chunk = file.slice(start, end)
+    // Validate file type
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg']
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Only MP4, WebM and OGG videos are allowed.')
+    }
+
+    // Validate thumbnail
+    if (!thumbnail.type.startsWith('image/')) {
+      throw new Error('Invalid thumbnail type. Only images are allowed.')
+    }
+
+    async function uploadChunkWithRetry(chunk: Blob, index: number, retryCount = 0) {
+      try {
         const formData = new FormData()
-        
         formData.append('chunk', chunk)
-        formData.append('chunkIndex', i.toString())
+        formData.append('chunkIndex', index.toString())
         formData.append('totalChunks', totalChunks.toString())
         formData.append('fileId', fileId)
 
         // Add title and thumbnail on last chunk
-        if (i === totalChunks - 1) {
+        if (index === totalChunks - 1) {
           formData.append('title', title)
           formData.append('thumbnail', thumbnail)
         }
@@ -86,10 +94,27 @@ function VideosAdmin() {
         })
 
         if (!response.ok) {
-          throw new Error('Upload failed')
+          throw new Error(`Upload failed with status ${response.status}`)
         }
 
-        const data = await response.json()
+        return await response.json()
+      } catch (error) {
+        if (retryCount < maxRetries) {
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000))
+          return uploadChunkWithRetry(chunk, index, retryCount + 1)
+        }
+        throw error
+      }
+    }
+
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize
+        const end = Math.min(start + chunkSize, file.size)
+        const chunk = file.slice(start, end)
+
+        const data = await uploadChunkWithRetry(chunk, i)
         const progress = Math.round(((i + 1) / totalChunks) * 100)
         setUploadProgress(progress)
       }
@@ -97,11 +122,11 @@ function VideosAdmin() {
       return true
     } catch (error) {
       console.error('Upload error:', error)
-      throw error
+      throw new Error(error instanceof Error ? error.message : 'Upload failed')
     }
   }
 
-  // Updated handleSubmit
+  // Update handleSubmit to include better error messages
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -116,17 +141,16 @@ function VideosAdmin() {
 
     try {
       if (editingVideo) {
-        // Handle edit case
         const response = await fetch(`/api/videos?id=${editingVideo.id}`, {
           method: 'PUT',
           body: formData,
         })
 
         if (!response.ok) {
-          throw new Error('Failed to update video')
+          const error = await response.json()
+          throw new Error(error.message || 'Failed to update video')
         }
       } else {
-        // Handle new video upload with chunks
         await uploadLargeVideo(video, title, thumbnail)
       }
 
