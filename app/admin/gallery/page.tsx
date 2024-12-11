@@ -17,7 +17,7 @@ interface GalleryImage {
   deleted_at: string | null
 }
 
-const API_BASE_URL = process.env.API_BASE_URL  
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])

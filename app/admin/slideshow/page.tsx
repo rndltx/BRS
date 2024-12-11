@@ -7,7 +7,7 @@ import { withAuth } from '../../components/withAuth'
 import { Button } from "../../components/ui/button"
 import { useToast } from "../../components/ui/use-toast"
 
-const API_BASE_URL = process.env.API_BASE_URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 interface SlideshowImage {
   id: number;
