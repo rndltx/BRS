@@ -2,7 +2,8 @@
 .orgChart {
   width: 100%;
   overflow-x: hidden;
-  padding: 20px 0;
+  padding: 40px 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
 }
 
 @media (min-width: 768px) {
@@ -135,6 +136,105 @@
   
   .orgChart li {
     padding: 1em 0.25em 0 0.25em;
+  }
+}
+
+.memberCard {
+  /* Previous li styles remain */
+  transition: all 0.3s ease;
+}
+
+.memberContent {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.memberContent:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.photoContainer {
+  position: relative;
+  margin: -3rem auto 1.5rem;
+  width: 120px;
+  height: 120px;
+}
+
+.memberPhoto {
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(45deg, #2563eb, #7c3aed);
+  transition: all 0.3s ease;
+}
+
+.memberPhoto:hover {
+  transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.iconWrapper {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(45deg, #2563eb, #7c3aed);
+  padding: 0.5rem;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.memberIcon {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+.memberName {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  margin: 0.5rem 0;
+  background: linear-gradient(to right, #fff, #e2e8f0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.memberPosition {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+/* Keep existing responsive and connection line styles */
+
+@media (prefers-color-scheme: dark) {
+  .memberContent {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .memberContent:hover {
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
+
+@media (max-width: 768px) {
+  .memberContent {
+    padding: 1.5rem;
+    margin: 0 1rem;
+  }
+  
+  .photoContainer {
+    margin: -2rem auto 1rem;
+    width: 100px;
+    height: 100px;
   }
 }
 
