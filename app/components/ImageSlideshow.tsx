@@ -24,6 +24,16 @@ export default function ImageSlideshow() {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
   }
 
+  const scrollToVisionMission = () => {
+    const element = document.getElementById('vision-mission')
+    element?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const scrollToFooter = () => {
+    const element = document.querySelector('footer')
+    element?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   useEffect(() => {
     const fetchImages = async () => {
       try {
@@ -120,10 +130,16 @@ export default function ImageSlideshow() {
           mulai dari teknologi hingga pengembangan sumber daya manusia.
         </p>
         <div className="flex gap-4">
-          <button className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 transition">
+          <button 
+            onClick={scrollToVisionMission}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 transition"
+          >
             Tentang Kami
           </button>
-          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+          <button 
+            onClick={scrollToFooter}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+          >
             Hubungi Kami
           </button>
         </div>
@@ -160,4 +176,3 @@ export default function ImageSlideshow() {
     </div>
   )
 }
-
