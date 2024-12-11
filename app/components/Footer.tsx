@@ -49,7 +49,7 @@ export default function Footer() {
               About Us
             </h3>
             <p className="text-gray-400 leading-relaxed hover:text-gray-300 transition-colors duration-200">
-              {siteName} is a leading provider of innovative solutions for businesses across Indonesia.
+              {siteName} adalah perusahaan yang bergerak di berbagai bidang strategis untuk mendukung kebutuhan masyarakat modern, mulai dari teknologi hingga pengembangan sumber daya manusia. Berdiri dengan semangat inovasi dan pelayanan berkualitas, kami terus berkomitmen untuk memberikan solusi terbaik bagi klien dan mitra kami.
             </p>
           </motion.div>
           
