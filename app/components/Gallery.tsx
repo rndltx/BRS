@@ -68,7 +68,7 @@ export default function Gallery() {
           transition={{ duration: 0.5 }}
           className="text-4xl font-bold text-center mb-12 bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent"
         >
-          Our Gallery
+          Gallery
         </MotionDiv>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {images.map((image, index) => (

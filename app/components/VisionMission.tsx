@@ -46,7 +46,7 @@ export default function VisionMission() {
           transition={{ duration: 0.5 }}
           className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent"
         >
-          Vision & Mission
+          Visi & Misi
         </motion.h2>
         <div className="grid md:grid-cols-2 gap-12">
           <motion.div
@@ -58,7 +58,7 @@ export default function VisionMission() {
             <div className="flex items-center mb-6 p-3 bg-blue-500/10 dark:bg-blue-400/10 rounded-lg w-fit">
               <Target className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
               <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 bg-clip-text text-transparent">
-                Our Vision
+                Visi Kami
               </h3>
             </div>
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
@@ -75,7 +75,7 @@ export default function VisionMission() {
             <div className="flex items-center mb-6 p-3 bg-green-500/10 dark:bg-green-400/10 rounded-lg w-fit">
               <Compass className="w-6 h-6 mr-2 text-green-600 dark:text-green-400" />
               <h3 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-800 dark:from-green-400 dark:to-green-600 bg-clip-text text-transparent">
-                Our Mission
+                Misi Kami
               </h3>
             </div>
             <ul className="space-y-4">
