@@ -12,25 +12,25 @@ interface OrgMember {
 
 const orgData: OrgMember[] = [
   {
-    name: "John Doe",
+    name: "M. Shoufi Rakhmatullah",
     position: "Direktur Utama",
     photo: "/team/dir.jpg",
     icon: User
   },
   {
     name: "Jane Smith",
-    position: "Wakil Direktur",
+    position: "Ahmad Fanshury",
     photo: "/team/wakdir.jpg",
     icon: Users
   },
   {
-    name: "Mike Johnson",
+    name: "Ghaniy Sriyanto",
     position: "Product Manager & Marketing",
     photo: "/team/mark.jpg",
     icon: Briefcase
   },
   {
-    name: "Sarah Lee",
+    name: "Khairun Rizaldy",
     position: "Product Manager & Technology",
     photo: "/team/tech.jpg",
     icon: Cpu
