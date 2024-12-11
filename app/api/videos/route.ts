@@ -5,9 +5,9 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
 // Add size limits
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024 // 500MB
-const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024 // 5MB
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
+const MAX_VIDEO_SIZE = 25 * 1024 * 1024 // 25MB for Vercel
+const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
+const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB chunks
 
 // Update FTP client
 const ftpClient = new FtpClient({
@@ -45,7 +45,8 @@ interface ChunkData {
   chunk: Buffer;
 }
 
-const chunks = new Map<string, Buffer[]>();
+// Track chunks with proper initialization
+const chunks = new Map<string, { buffers: Buffer[], totalChunks: number }>();
 
 export async function GET(request: Request) {
   try {
@@ -69,34 +70,38 @@ export async function POST(request: Request) {
     const chunk = formData.get('chunk') as File
     const isLastChunk = formData.get('isLastChunk') === 'true'
 
-    // Validate required fields
+    // Validate inputs
     if (!fileId || !chunk || isNaN(chunkIndex) || isNaN(totalChunks)) {
       return NextResponse.json({ 
         error: 'Missing required fields' 
       }, { status: 400 })
     }
 
-    // Initialize chunk array if needed
+    // Initialize chunk tracking if needed
     if (!chunks.has(fileId)) {
-      chunks.set(fileId, Array(totalChunks))
+      chunks.set(fileId, {
+        buffers: Array(totalChunks),
+        totalChunks
+      })
     }
 
-    // Store chunk
-    const chunkArray = chunks.get(fileId)
-    if (!chunkArray) {
+    const chunkData = chunks.get(fileId)
+    if (!chunkData) {
       return NextResponse.json({ 
         error: 'Invalid file ID' 
       }, { status: 400 })
     }
 
-    // Add chunk to array
+    // Store chunk
     const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
-    chunkArray[chunkIndex] = chunkBuffer
+    chunkData.buffers[chunkIndex] = chunkBuffer
 
     // Process complete file if this is the last chunk
     if (isLastChunk) {
+      const { buffers } = chunkData
+
       // Verify all chunks are present
-      if (chunkArray.some(chunk => !chunk)) {
+      if (buffers.some(chunk => !chunk)) {
         chunks.delete(fileId)
         return NextResponse.json({ 
           error: 'Missing chunks' 
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
         const timestamp = Date.now()
         const videoPath = `/uploads/videos/${timestamp}-${fileId}.mp4`
         const thumbnailPath = `/uploads/thumbnails/${timestamp}-thumb.jpg`
-        const completeBuffer = Buffer.concat(chunkArray)
+        const completeBuffer = Buffer.concat(buffers)
 
         await Promise.all([
           ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`),
@@ -141,20 +146,23 @@ export async function POST(request: Request) {
         })
       } catch (error) {
         chunks.delete(fileId)
-        throw error
+        console.error('Upload error:', error)
+        return NextResponse.json({ 
+          error: 'Failed to save video' 
+        }, { status: 500 })
       }
     }
 
-    // Return progress for non-final chunks
+    // Return progress
     return NextResponse.json({
       success: true,
       progress: Math.round((chunkIndex + 1) / totalChunks * 100)
     })
 
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('Request error:', error)
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Upload failed' 
+      error: 'Upload failed' 
     }, { status: 500 })
   }
 }
