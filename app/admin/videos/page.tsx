@@ -53,6 +53,42 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
+  // Client-side upload function
+  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
+    const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+    const fileId = Math.random().toString(36).substring(7);
+    const totalChunks = Math.ceil(file.size / chunkSize);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+      const formData = new FormData();
+      
+      formData.append('chunk', chunk);
+      formData.append('chunkIndex', i.toString());
+      formData.append('totalChunks', totalChunks.toString());
+      formData.append('fileId', fileId);
+
+      // Add title and thumbnail on last chunk
+      if (i === totalChunks - 1) {
+        formData.append('title', title);
+        formData.append('thumbnail', thumbnail);
+      }
+
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      // Update progress UI
+      updateProgress(data.progress);
+    }
+  }
+
   // Update handleSubmit in page.tsx
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
