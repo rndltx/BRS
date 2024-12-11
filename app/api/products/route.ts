@@ -51,10 +51,9 @@ export async function GET() {
   }
 }
 
+// Update POST handler's file upload section
 export async function POST(request: Request) {
   try {
-    await mkdir(UPLOAD_DIR, { recursive: true })
-
     const formData = await request.formData()
     const name = formData.get('name') as string
     const description = formData.get('description') as string
@@ -67,7 +66,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate image type
     if (!isValidImageType(image.type)) {
       return NextResponse.json(
         { error: 'Invalid image type. Supported formats: JPG, PNG, GIF, WebP' },
@@ -75,24 +73,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create filename with proper extension
     const ext = getFileExtension(image.name)
     const filename = `${Date.now()}-${image.name.replace(/\.[^/.]+$/, '')}${ext}`
     const relativePath = `/uploads/products/${filename}`
-    const absolutePath = path.join(process.cwd(), 'public', relativePath)
+    const fullRemotePath = `/public_html${relativePath}`
 
-    // Save image
-    const buffer = Buffer.from(await image.arrayBuffer())
-    await writeFile(absolutePath, buffer)
-
-    // Add FTP upload
+    // Upload to FTP
     try {
-      await ftpClient.uploadFile(absolutePath, `/public_html${relativePath}`)
+      const buffer = Buffer.from(await image.arrayBuffer())
+      await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
     } catch (ftpError) {
       console.error('FTP upload error:', ftpError)
+      throw ftpError
     }
 
-    // Save to database with proper typing
+    // Save to database
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO products (
         name, description, image_url, active, created_at, updated_at
@@ -115,6 +110,7 @@ export async function POST(request: Request) {
   }
 }
 
+// Update PUT handler's file upload section
 export async function PUT(request: Request) {
   try {
     const url = new URL(request.url)
@@ -141,33 +137,26 @@ export async function PUT(request: Request) {
 
     let imagePath = existing[0].image_url
 
-    // Handle new image if provided
     if (image) {
       const buffer = Buffer.from(await image.arrayBuffer())
       const ext = getFileExtension(image.name)
       const filename = `${Date.now()}-${image.name.replace(/\.[^/.]+$/, '').replaceAll(' ', '_')}${ext}`
       imagePath = `/uploads/products/${filename}`
-      const absolutePath = path.join(process.cwd(), 'public', imagePath)
+      const fullRemotePath = `/public_html${imagePath}`
 
-      await mkdir(UPLOAD_DIR, { recursive: true })
-      await writeFile(absolutePath, buffer)
-
-      // Add FTP upload
+      // Upload new image to FTP
       try {
-        await ftpClient.uploadFile(absolutePath, `/public_html${imagePath}`)
+        await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
       } catch (ftpError) {
         console.error('FTP upload error:', ftpError)
+        throw ftpError
       }
 
-      // Delete old image
-      const oldPath = path.join(process.cwd(), 'public', existing[0].image_url)
-      if (existsSync(oldPath)) {
-        await unlink(oldPath).catch(console.error)
-        try {
-          await ftpClient.deleteFile(`/public_html${existing[0].image_url}`)
-        } catch (ftpError) {
-          console.error('FTP deletion error:', ftpError)
-        }
+      // Delete old image from FTP
+      try {
+        await ftpClient.deleteFile(`/public_html${existing[0].image_url}`)
+      } catch (ftpError) {
+        console.error('FTP deletion error:', ftpError)
       }
     }
 
@@ -190,6 +179,7 @@ export async function PUT(request: Request) {
   }
 }
 
+// Update DELETE handler
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url)
@@ -209,23 +199,18 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
+    // Delete from FTP first
+    try {
+      await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
+    } catch (ftpError) {
+      console.error('FTP deletion error:', ftpError)
+    }
+
     // Soft delete in database
     await pool.query(
       'UPDATE products SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?',
       [id]
     )
-
-    // Optionally delete file
-    const absolutePath = path.join(process.cwd(), 'public', rows[0].image_url)
-    if (existsSync(absolutePath)) {
-      await unlink(absolutePath).catch(console.error)
-      // Add FTP delete
-      try {
-        await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
-      } catch (ftpError) {
-        console.error('FTP deletion error:', ftpError)
-      }
-    }
 
     return NextResponse.json({ message: 'Product deleted successfully' })
   } catch (error) {
