@@ -10,10 +10,29 @@ export default function Footer() {
     console.log('Footer Settings:', settings)
   }, [settings])
 
-  // Early return while loading
+  // Early return while loading with a nicer loading state
   if (isLoading) {
-    return <div>Loading footer...</div>
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-300"></div>
+      </div>
+    )
   }
+
+  const defaultSettings = {
+    siteName: 'CV. Berkat Rahmat Sejahtera',
+    contactEmail: 'cvberkatrahmatsejahtera@gmail.com',
+    phoneNumber: '+62 877 1599 2209',
+    address: 'Jl. Karangsoo Residence, Kel. Loktabat Utara, Kec. Banjarbaru Utara, Kalimantan Selatan, Indonesia'
+  }
+
+  // Use nullish coalescing to fall back to default values
+  const {
+    siteName = defaultSettings.siteName,
+    contactEmail = defaultSettings.contactEmail,
+    phoneNumber = defaultSettings.phoneNumber,
+    address = defaultSettings.address
+  } = settings || {}
 
   return (
     <footer className="bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-900 dark:to-black text-white py-16">
@@ -30,7 +49,7 @@ export default function Footer() {
               About Us
             </h3>
             <p className="text-gray-400 leading-relaxed hover:text-gray-300 transition-colors duration-200">
-              {settings?.siteName || 'CV. BRS'} is a leading provider of innovative solutions for businesses across Indonesia.
+              {siteName} is a leading provider of innovative solutions for businesses across Indonesia.
             </p>
           </motion.div>
           
@@ -70,24 +89,24 @@ export default function Footer() {
             </h3>
             <div className="space-y-3 text-gray-400">
               <p className="hover:text-gray-300 transition-colors duration-200">
-                {settings?.address}
+                {address}
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
                 Phone:{' '}
                 <a 
-                  href={`tel:${settings?.phoneNumber?.replace(/\s+/g, '')}`}
+                  href={`tel:${phoneNumber.replace(/\s+/g, '')}`}
                   className="hover:underline"
                 >
-                  {settings?.phoneNumber}
+                  {phoneNumber}
                 </a>
               </p>
               <p className="hover:text-gray-300 transition-colors duration-200">
                 Email:{' '}
                 <a 
-                  href={`mailto:${settings?.contactEmail}`}
+                  href={`mailto:${contactEmail}`}
                   className="hover:underline"
                 >
-                  {settings?.contactEmail}
+                  {contactEmail}
                 </a>
               </p>
             </div>
@@ -124,7 +143,7 @@ export default function Footer() {
           className="mt-12 pt-8 border-t border-gray-700/50 text-center"
         >
           <p className="text-gray-400 hover:text-gray-300 transition-colors duration-200">
-            &copy; {new Date().getFullYear()} {settings?.siteName || 'CV. BRS'}. All rights reserved.
+            &copy; {new Date().getFullYear()} {siteName}. All rights reserved.
           </p>
         </motion.div>
       </div>
