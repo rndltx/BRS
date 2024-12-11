@@ -118,12 +118,12 @@ export default function Products() {
         <AnimatePresence>
           {isModalOpen && selectedProduct && (
             <>
-              <motion.div
+              <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={closeModal}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 border-0"
               />
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
