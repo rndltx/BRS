@@ -7,7 +7,6 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import Image from 'next/image'
 
 const DOMAIN = 'https://rizsign.my.id'
 
@@ -29,6 +28,9 @@ function VideosAdmin() {
   const [isLoading, setIsLoading] = useState(true)
   const [editingVideo, setEditingVideo] = useState<Video | null>(null)
   const { toast } = useToast()
+
+  // Update progress tracking
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -54,47 +56,100 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  // Update handleSubmit in page.tsx
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-
-    // If editing, add ID to formData and use PUT method
-    if (editingVideo) {
-      formData.append('id', editingVideo.id.toString());
-    }
+  // Updated uploadLargeVideo function
+  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
+    const chunkSize = 5 * 1024 * 1024 // 5MB chunks
+    const fileId = Math.random().toString(36).substring(7)
+    const totalChunks = Math.ceil(file.size / chunkSize)
 
     try {
-      const response = await fetch('/api/videos', {
-        method: editingVideo ? 'PUT' : 'POST',
-        body: formData,
-      });
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize
+        const end = Math.min(start + chunkSize, file.size)
+        const chunk = file.slice(start, end)
+        const formData = new FormData()
+        
+        formData.append('chunk', chunk)
+        formData.append('chunkIndex', i.toString())
+        formData.append('totalChunks', totalChunks.toString())
+        formData.append('fileId', fileId)
 
-      if (!response.ok) {
-        throw new Error(editingVideo ? 'Failed to update video' : 'Failed to save video');
+        // Add title and thumbnail on last chunk
+        if (i === totalChunks - 1) {
+          formData.append('title', title)
+          formData.append('thumbnail', thumbnail)
+        }
+
+        const response = await fetch('/api/videos', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error('Upload failed')
+        }
+
+        const data = await response.json()
+        const progress = Math.round(((i + 1) / totalChunks) * 100)
+        setUploadProgress(progress)
+      }
+
+      return true
+    } catch (error) {
+      console.error('Upload error:', error)
+      throw error
+    }
+  }
+
+  // Updated handleSubmit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setUploadProgress(0)
+
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+    
+    const title = formData.get('title') as string
+    const video = formData.get('video') as File
+    const thumbnail = formData.get('thumbnail') as File
+
+    try {
+      if (editingVideo) {
+        // Handle edit case
+        const response = await fetch(`/api/videos?id=${editingVideo.id}`, {
+          method: 'PUT',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to update video')
+        }
+      } else {
+        // Handle new video upload with chunks
+        await uploadLargeVideo(video, title, thumbnail)
       }
 
       toast({
         title: "Success",
         description: editingVideo ? "Video updated successfully." : "Video added successfully.",
-      });
+      })
 
-      form.reset();
-      setEditingVideo(null);
-      fetchVideos();
+      form.reset()
+      setEditingVideo(null)
+      setUploadProgress(0)
+      fetchVideos()
     } catch (error) {
-      console.error('Error saving video:', error);
+      console.error('Error saving video:', error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save video",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Update handleDelete in page.tsx
   const handleDelete = async (id: number) => {
@@ -158,6 +213,17 @@ function VideosAdmin() {
           accept="video/*"
           required={!editingVideo}
         />
+
+        {/* Add progress bar */}
+        {uploadProgress > 0 && uploadProgress < 100 && (
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        )}
+
         <Button type="submit" disabled={isLoading}>
           {editingVideo ? 'Update Video' : 'Add Video'}
         </Button>
