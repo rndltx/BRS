@@ -27,12 +27,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const fetchSettings = async () => {
-    setIsLoading(true)
     try {
       const response = await fetch('/api/settings')
       if (!response.ok) throw new Error('Failed to fetch settings')
       const data = await response.json()
-      console.log('Fetched settings:', data) // Debug log
       setSettings(data)
     } catch (error) {
       console.error('Error fetching settings:', error)
