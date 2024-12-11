@@ -25,6 +25,8 @@ const ftpClient = new FtpClient({
   secure: process.env.FTP_SECURE === 'true'
 })
 
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
+
 export async function GET(request: Request) {
   try {
     const [rows] = await pool.query(
@@ -55,6 +57,21 @@ export async function POST(request: Request) {
     if (!title || !thumbnail || !video) {
       return NextResponse.json(
         { error: 'All fields are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate file sizes
+    if (thumbnail.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'Thumbnail file size must be less than 100MB' },
+        { status: 400 }
+      )
+    }
+
+    if (video.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'Video file size must be less than 100MB' },
         { status: 400 }
       )
     }
@@ -212,6 +229,25 @@ export async function PUT(request: Request) {
 
     let thumbnailPath = existing[0].thumbnail_url;
     let videoPath = existing[0].video_url;
+
+    // Validate file sizes if new files are uploaded
+    if (thumbnail && thumbnail.size > 0) {
+      if (thumbnail.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: 'Thumbnail file size must be less than 100MB' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (video && video.size > 0) {
+      if (video.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: 'Video file size must be less than 100MB' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Handle new thumbnail if uploaded
     if (thumbnail && thumbnail.size > 0) {
