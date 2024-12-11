@@ -10,7 +10,7 @@ const nextConfig = {
         pathname: '/uploads/**',
       }
     ],
-    domains: ['rizsign.my.id']
+    domains: ['brs.rizsign.my.id']
   }
 }
 

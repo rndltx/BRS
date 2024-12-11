@@ -180,4 +180,3 @@ function SlideshowAdmin() {
 }
 
 export default withAuth(SlideshowAdmin)
-
