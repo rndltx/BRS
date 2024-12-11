@@ -56,90 +56,51 @@ function VideosAdmin() {
     fetchVideos()
   }, [fetchVideos])
 
-  // Updated uploadLargeVideo function
-  async function uploadLargeVideo(file: File, title: string, thumbnail: File) {
-    const chunkSize = 1 * 1024 * 1024 // 1MB chunks
-    const fileId = Math.random().toString(36).substring(7)
-    const totalChunks = Math.ceil(file.size / chunkSize)
-    const maxRetries = 3
-    const uploadedChunks = new Set()
+  // Updated uploadVideo function - simpler direct upload
+  async function uploadVideo(file: File, title: string, thumbnail: File) {
+    // Validate file sizes
+    const MAX_VIDEO_SIZE = 25 * 1024 * 1024 // 25MB
+    const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
 
-    // Validate files
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg']
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error('Invalid file type. Only MP4, WebM and OGG videos are allowed.')
-    }
-    if (!thumbnail.type.startsWith('image/')) {
-      throw new Error('Invalid thumbnail type. Only images are allowed.')
+    if (file.size > MAX_VIDEO_SIZE) {
+      throw new Error(`Video must be smaller than ${MAX_VIDEO_SIZE / (1024 * 1024)}MB`)
     }
 
-    async function uploadChunkWithRetry(chunk: Blob, index: number, retryCount = 0): Promise<any> {
-      const formData = new FormData()
-      formData.append('chunk', chunk)
-      formData.append('chunkIndex', index.toString())
-      formData.append('totalChunks', totalChunks.toString())
-      formData.append('fileId', fileId)
-      formData.append('fileSize', file.size.toString())
-
-      // Add metadata on last chunk
-      if (index === totalChunks - 1) {
-        formData.append('title', title)
-        formData.append('thumbnail', thumbnail)
-        formData.append('isLastChunk', 'true')
-      }
-
-      try {
-        const response = await fetch('/api/videos', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || `Upload failed with status ${response.status}`)
-        }
-
-        const data = await response.json()
-        if (!data.success) {
-          throw new Error(data.error || 'Upload failed')
-        }
-
-        uploadedChunks.add(index)
-        return data
-      } catch (error) {
-        if (retryCount < maxRetries) {
-          console.log(`Retrying chunk ${index}, attempt ${retryCount + 1}`)
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000))
-          return uploadChunkWithRetry(chunk, index, retryCount + 1)
-        }
-        throw error
-      }
+    if (thumbnail.size > MAX_THUMBNAIL_SIZE) {
+      throw new Error(`Thumbnail must be smaller than ${MAX_THUMBNAIL_SIZE / (1024 * 1024)}MB`)
     }
 
-    try {
-      for (let i = 0; i < totalChunks; i++) {
-        if (uploadedChunks.has(i)) continue
+    // Validate file types
+    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg']
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
 
-        const start = i * chunkSize
-        const end = Math.min(start + chunkSize, file.size)
-        const chunk = file.slice(start, end)
-
-        const data = await uploadChunkWithRetry(chunk, i)
-        const progress = Math.round(((i + 1) / totalChunks) * 100)
-        setUploadProgress(progress)
-
-        // Handle final chunk response
-        if (data.videoId) {
-          return data.videoId
-        }
-      }
-    } catch (error) {
-      console.error('Upload error:', error)
-      throw new Error(error instanceof Error ? error.message : 'Upload failed')
+    if (!allowedVideoTypes.includes(file.type)) {
+      throw new Error('Invalid video type. Only MP4, WebM and OGG videos are allowed.')
     }
+    if (!allowedImageTypes.includes(thumbnail.type)) {
+      throw new Error('Invalid thumbnail type. Only JPEG, PNG and WebP images are allowed.')
+    }
+
+    // Create FormData
+    const formData = new FormData()
+    formData.append('title', title)
+    formData.append('video', file)
+    formData.append('thumbnail', thumbnail)
+
+    const response = await fetch('/api/videos', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || `Upload failed with status ${response.status}`)
+    }
+
+    return response.json()
   }
 
-  // Update handleSubmit
+  // Updated handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -165,9 +126,15 @@ function VideosAdmin() {
           throw new Error(error.message || 'Failed to update video')
         }
       } else {
-        // Upload new video with progress
-        const videoId = await uploadLargeVideo(video, title, thumbnail)
-        console.log('Upload completed, video ID:', videoId)
+        // Show initial progress
+        setUploadProgress(10)
+        
+        // Upload video
+        const result = await uploadVideo(video, title, thumbnail)
+        
+        // Show completion
+        setUploadProgress(100)
+        console.log('Upload completed, video ID:', result.videoId)
       }
 
       toast({
@@ -188,6 +155,7 @@ function VideosAdmin() {
       })
     } finally {
       setIsLoading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -233,6 +201,16 @@ function VideosAdmin() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Video Management</h1>
+      
+      {/* Add file size warning */}
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg mb-6">
+        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+          Note: Maximum file sizes - Video: 25MB, Thumbnail: 2MB
+          <br />
+          Supported formats - Video: MP4, WebM, OGG | Thumbnail: JPEG, PNG, WebP
+        </p>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6 mb-8">
         <Input
           type="text"

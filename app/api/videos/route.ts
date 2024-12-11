@@ -4,24 +4,26 @@ import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 import { FtpClient } from '../../lib/ftp'
 
-// Add size limits
-const MAX_VIDEO_SIZE = 500 * 1024 * 1024 // 500MB
-const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024 // 5MB
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB per chunk
+// Reduce size limits for Vercel
+const MAX_VIDEO_SIZE = 25 * 1024 * 1024 // 25MB for Vercel
+const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
+const CHUNK_SIZE = 2 * 1024 * 1024 // 2MB per chunk
 
-// Update FTP client
 const ftpClient = new FtpClient({
-  host: 'rizsign.my.id',
+  host: process.env.FTP_HOST!,
   user: process.env.FTP_USER!,
   password: process.env.FTP_PASSWORD!,
   secure: true,
   port: 21
 })
 
-// Add size validation helper
-const validateFileSize = (file: File, maxSize: number, type: string) => {
+// Add better validation
+const validateFile = (file: File, maxSize: number, allowedTypes: string[]) => {
   if (file.size > maxSize) {
-    throw new Error(`${type} size must be less than ${maxSize / (1024 * 1024)}MB`)
+    throw new Error(`File size must be less than ${maxSize / (1024 * 1024)}MB`)
+  }
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`)
   }
 }
 
@@ -60,71 +62,91 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const chunks = new Map<string, Buffer[]>()
+  
   try {
-    const formData = await request.formData();
-    const chunkIndex = parseInt(formData.get('chunkIndex') as string);
-    const totalChunks = parseInt(formData.get('totalChunks') as string);
-    const fileId = formData.get('fileId') as string;
-    const chunk = formData.get('chunk') as File;
-    const isLastChunk = chunkIndex === totalChunks - 1;
+    const formData = await request.formData()
+    const chunkIndex = parseInt(formData.get('chunkIndex') as string)
+    const totalChunks = parseInt(formData.get('totalChunks') as string)
+    const fileId = formData.get('fileId') as string
+    const chunk = formData.get('chunk') as File
+    const isLastChunk = chunkIndex === totalChunks - 1
 
-    // Handle chunk storage
+    // Validate chunk
+    if (!chunk || !fileId) {
+      throw new Error('Missing required fields')
+    }
+
+    // Initialize chunk array
     if (!chunks.has(fileId)) {
-      chunks.set(fileId, []);
+      chunks.set(fileId, [])
     }
 
-    const chunkBuffer = Buffer.from(await chunk.arrayBuffer());
-    chunks.get(fileId)![chunkIndex] = chunkBuffer;
+    // Store chunk
+    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
+    chunks.get(fileId)![chunkIndex] = chunkBuffer
 
-    // If this is the last chunk, process the complete file
+    // Process complete file on last chunk
     if (isLastChunk) {
-      const completeBuffer = Buffer.concat(chunks.get(fileId)!);
-      const title = formData.get('title') as string;
-      const thumbnail = formData.get('thumbnail') as File;
+      const completeBuffer = Buffer.concat(chunks.get(fileId)!)
+      const title = formData.get('title') as string
+      const thumbnail = formData.get('thumbnail') as File
 
-      // Upload complete video
-      const timestamp = Date.now();
-      const videoFilename = `${timestamp}-${fileId}.mp4`;
-      const videoPath = `/uploads/videos/${videoFilename}`;
+      // Validate files
+      if (!title || !thumbnail) {
+        throw new Error('Missing title or thumbnail')
+      }
 
-      await ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`);
+      validateFile(thumbnail, MAX_THUMBNAIL_SIZE, ['image/jpeg', 'image/png'])
 
-      // Handle thumbnail
-      const thumbnailBuffer = Buffer.from(await thumbnail.arrayBuffer());
-      const thumbnailFilename = `${timestamp}-thumbnail.jpg`;
-      const thumbnailPath = `/uploads/thumbnails/${thumbnailFilename}`;
-      
-      await ftpClient.uploadFromBuffer(thumbnailBuffer, `/public_html${thumbnailPath}`);
+      // Upload files
+      try {
+        const timestamp = Date.now()
+        const videoPath = `/uploads/videos/${timestamp}-${fileId}.mp4`
+        const thumbnailPath = `/uploads/thumbnails/${timestamp}-thumb.jpg`
 
-      // Save to database
-      const [result] = await pool.query<ResultSetHeader>(
-        `INSERT INTO videos (
-          title, thumbnail_url, video_url, views, active, created_at, updated_at
-        ) VALUES (?, ?, ?, 0, 1, NOW(), NOW())`,
-        [title, thumbnailPath, videoPath]
-      );
+        await Promise.all([
+          ftpClient.uploadFromBuffer(completeBuffer, `/public_html${videoPath}`),
+          ftpClient.uploadFromBuffer(
+            Buffer.from(await thumbnail.arrayBuffer()),
+            `/public_html${thumbnailPath}`
+          )
+        ])
 
-      // Cleanup chunks
-      chunks.delete(fileId);
+        // Save to database
+        const [result] = await pool.query<ResultSetHeader>(
+          `INSERT INTO videos (
+            title, thumbnail_url, video_url, views, active
+          ) VALUES (?, ?, ?, 0, 1)`,
+          [title, thumbnailPath, videoPath]
+        )
 
-      return NextResponse.json({ 
-        success: true,
-        message: 'Video uploaded successfully',
-        videoId: result.insertId
-      });
+        return NextResponse.json({
+          success: true,
+          videoId: result.insertId
+        })
+      } finally {
+        // Cleanup
+        chunks.delete(fileId)
+      }
     }
 
-    // Return progress for non-final chunks
-    return NextResponse.json({ 
+    // Return progress
+    return NextResponse.json({
       success: true,
-      progress: (chunkIndex + 1) / totalChunks * 100 
-    });
+      progress: Math.round((chunkIndex + 1) / totalChunks * 100)
+    })
 
   } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ 
-      error: 'Upload failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('Upload error:', error)
+    
+    // Cleanup on error
+    if (chunks.size > 0) {
+      chunks.clear()
+    }
+
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Upload failed'
+    }, { status: 500 })
   }
 }
