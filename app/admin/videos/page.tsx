@@ -95,9 +95,16 @@ function VideosAdmin() {
         body: formData,
       });
 
+      // Check for non-JSON responses first
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Server error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || (editingVideo ? 'Failed to update video' : 'Failed to save video'));
+        throw new Error(data.error || 'Failed to save video');
       }
 
       toast({
