@@ -4,6 +4,7 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
+import { FtpClient } from '../../lib/ftp'
 
 interface Video extends RowDataPacket {
   id: number
@@ -16,6 +17,13 @@ interface Video extends RowDataPacket {
   updated_at: string
   deleted_at: string | null
 }
+
+const ftpClient = new FtpClient({
+  host: process.env.FTP_HOST!,
+  user: process.env.FTP_USER!,
+  password: process.env.FTP_PASSWORD!,
+  secure: process.env.FTP_SECURE === 'true'
+})
 
 export async function GET(request: Request) {
   try {
@@ -59,14 +67,25 @@ export async function POST(request: Request) {
     const thumbnailPath = `/uploads/thumbnails/${thumbnailFilename}`
     const videoPath = `/uploads/videos/${videoFilename}`
 
-    await writeFile(
-      path.join(process.cwd(), 'public', thumbnailPath), 
-      Buffer.from(await thumbnail.arrayBuffer())
-    )
-    await writeFile(
-      path.join(process.cwd(), 'public', videoPath),
-      Buffer.from(await video.arrayBuffer())
-    )
+    const thumbnailAbsPath = path.join(process.cwd(), 'public', thumbnailPath)
+    await writeFile(thumbnailAbsPath, Buffer.from(await thumbnail.arrayBuffer()))
+    
+    // Upload thumbnail to FTP
+    try {
+      await ftpClient.uploadFile(thumbnailAbsPath, `/public_html${thumbnailPath}`)
+    } catch (ftpError) {
+      console.error('FTP thumbnail upload error:', ftpError)
+    }
+
+    const videoAbsPath = path.join(process.cwd(), 'public', videoPath)
+    await writeFile(videoAbsPath, Buffer.from(await video.arrayBuffer()))
+    
+    // Upload video to FTP
+    try {
+      await ftpClient.uploadFile(videoAbsPath, `/public_html${videoPath}`)  
+    } catch (ftpError) {
+      console.error('FTP video upload error:', ftpError)
+    }
 
     // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
@@ -134,9 +153,22 @@ export async function DELETE(request: Request) {
 
     if (existsSync(absoluteThumbPath)) {
       await unlink(absoluteThumbPath).catch(console.error)
+      // Delete from FTP
+      try {
+        await ftpClient.deleteFile(`/public_html${rows[0].thumbnail_url}`)
+      } catch (ftpError) {
+        console.error('FTP thumbnail deletion error:', ftpError)
+      }
     }
+    
     if (existsSync(absoluteVideoPath)) {
       await unlink(absoluteVideoPath).catch(console.error)
+      // Delete from FTP
+      try {
+        await ftpClient.deleteFile(`/public_html${rows[0].video_url}`)
+      } catch (ftpError) {
+        console.error('FTP video deletion error:', ftpError)
+      }
     }
 
     return NextResponse.json({ message: 'Video deleted successfully' })
@@ -192,10 +224,25 @@ export async function PUT(request: Request) {
         Buffer.from(await thumbnail.arrayBuffer())
       );
 
+      // Upload to FTP
+      try {
+        await ftpClient.uploadFile(
+          path.join(process.cwd(), 'public', thumbnailPath),
+          `/public_html${thumbnailPath}`
+        )
+      } catch (ftpError) {
+        console.error('FTP thumbnail upload error:', ftpError)
+      }
+
       // Delete old thumbnail
       const oldThumbPath = path.join(process.cwd(), 'public', existing[0].thumbnail_url);
       if (existsSync(oldThumbPath)) {
         await unlink(oldThumbPath).catch(console.error);
+        try {
+          await ftpClient.deleteFile(`/public_html${existing[0].thumbnail_url}`)
+        } catch (ftpError) {
+          console.error('FTP thumbnail deletion error:', ftpError)
+        }
       }
     }
 
@@ -210,10 +257,25 @@ export async function PUT(request: Request) {
         Buffer.from(await video.arrayBuffer())
       );
 
+      // Upload to FTP
+      try {
+        await ftpClient.uploadFile(
+          path.join(process.cwd(), 'public', videoPath),
+          `/public_html${videoPath}`
+        )
+      } catch (ftpError) {
+        console.error('FTP video upload error:', ftpError)
+      }
+
       // Delete old video
       const oldVideoPath = path.join(process.cwd(), 'public', existing[0].video_url);
       if (existsSync(oldVideoPath)) {
         await unlink(oldVideoPath).catch(console.error);
+        try {
+          await ftpClient.deleteFile(`/public_html${existing[0].video_url}`)
+        } catch (ftpError) {
+          console.error('FTP video deletion error:', ftpError)
+        }
       }
     }
 
