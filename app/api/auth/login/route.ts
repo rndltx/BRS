@@ -7,7 +7,7 @@ import { RowDataPacket } from 'mysql2'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-// CORS configuration
+// Update CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -23,67 +23,41 @@ interface AdminUser extends RowDataPacket {
   last_login: Date;
 }
 
-// Handle OPTIONS request for CORS
+// Handle OPTIONS preflight request
 export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders
+  })
 }
 
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    // Get user from database
-    const [rows] = await pool.query<AdminUser[]>(
+    const [user] = await pool.query(
       'SELECT * FROM admin_users WHERE username = ?',
       [username]
     )
 
-    if (!rows || rows.length === 0) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
-        { status: 401, headers: corsHeaders }
+        { 
+          status: 401,
+          headers: corsHeaders
+        }
       )
     }
 
-    const user = rows[0]
-
-    // Verify password
-    const isValid = await bcrypt.compare(password, user.password)
-    
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401, headers: corsHeaders }
-      )
-    }
-
-    // Generate JWT token
     const token = jwt.sign(
-      { 
-        userId: user.id,
-        username: user.username 
-      },
-      JWT_SECRET,
+      { userId: user.id },
+      process.env.JWT_SECRET!,
       { expiresIn: '24h' }
     )
 
-    // Update last login
-    await pool.query(
-      'UPDATE admin_users SET last_login = NOW() WHERE id = ?',
-      [user.id]
-    )
-
-    // Create response with cookie
     const response = NextResponse.json(
-      {
-        success: true,
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email
-        }
-      },
+      { success: true, token },
       { headers: corsHeaders }
     )
 
@@ -92,7 +66,7 @@ export async function POST(request: Request) {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
-      maxAge: 86400, // 24 hours
+      maxAge: 86400,
       path: '/',
       domain: 'rizsign.my.id'
     })
@@ -103,7 +77,10 @@ export async function POST(request: Request) {
     console.error('Login error:', error)
     return NextResponse.json(
       { error: 'Authentication failed' },
-      { status: 500, headers: corsHeaders }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     )
   }
 }

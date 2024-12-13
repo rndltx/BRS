@@ -8,6 +8,15 @@ import { ArrowLeft } from 'lucide-react'
 
 const API_BASE_URL = 'https://rizsign.my.id/api'
 
+// CORS headers configuration
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+}
+
 interface LoginResponse {
   success: boolean;
   token?: string;
@@ -27,11 +36,17 @@ export default function AdminLogin() {
     setIsLoading(true)
 
     try {
+      // First, send OPTIONS request
+      await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'OPTIONS',
+        headers: corsHeaders,
+        credentials: 'include'
+      })
+
+      // Then send actual login request
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: corsHeaders,
         credentials: 'include',
         body: JSON.stringify({ username, password }),
       })
@@ -43,7 +58,6 @@ export default function AdminLogin() {
       }
 
       if (data.success) {
-        // Store any necessary auth data
         if (data.token) {
           localStorage.setItem('adminToken', data.token)
         }
