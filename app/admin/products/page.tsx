@@ -8,7 +8,6 @@ import { Textarea } from "../../components/ui/textarea"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import Image from 'next/image'
 
 interface Product {
   id: number;
@@ -174,13 +173,11 @@ function ProductsAdmin() {
             <CardContent>
               <div className="relative aspect-video w-full mb-4">
                 {product.image_url && (
-                  <Image
-                    src={product.image_url}
+                  <img
+                    src={`https://rizsign.my.id${product.image_url}`}
                     alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="rounded-md object-cover"
-                    priority={false}
+                    className="absolute inset-0 w-full h-full rounded-md object-cover"
+                    loading="lazy"
                   />
                 )}
               </div>

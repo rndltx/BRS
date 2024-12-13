@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import Image from 'next/image'
 import { Trash2, Upload } from 'lucide-react'
 import { withAuth } from '../../components/withAuth'
 import { Button } from "../../components/ui/button"
@@ -146,7 +145,7 @@ function SlideshowAdmin() {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {images.map((image, index) => (
+        {images.map((image) => (
           <motion.div
             key={image.id}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -155,18 +154,15 @@ function SlideshowAdmin() {
             className="relative group"
           >
             <div className="relative aspect-video w-full overflow-hidden rounded-lg shadow-md">
-              <Image
-                src={image.image_url}
+              <img
+                src={`https://rizsign.my.id${image.image_url}`}
                 alt={`Slideshow image ${image.id}`}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                priority={index === 0}
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               <Button
                 variant="destructive"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 h-8 w-8" // Add explicit sizing classes
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 h-8 w-8"
                 onClick={() => handleImageDelete(image.id)}
               >
                 <Trash2 className="h-4 w-4" />

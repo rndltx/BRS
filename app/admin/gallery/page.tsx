@@ -7,7 +7,6 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
-import Image from 'next/image'
 
 interface GalleryImage {
   id: number
@@ -17,6 +16,9 @@ interface GalleryImage {
   updated_at: string
   deleted_at: string | null
 }
+
+// Add domain constant
+const DOMAIN = 'https://rizsign.my.id'
 
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -125,23 +127,27 @@ function GalleryAdmin() {
     }
   }
 
-  const ImageWithFallback = ({ src, alt, ...props }: any) => {
+  // Updated ImageWithFallback component
+  const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
     const [error, setError] = useState(false)
+    const imageUrl = src.startsWith('http') ? src : `${DOMAIN}${src}`
 
     if (error || !src) {
       return (
-        <div className="flex items-center justify-center h-full bg-gray-100 rounded-md">
+        <div className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-800 rounded-md">
           <ImageOff className="w-12 h-12 text-gray-400" />
         </div>
       )
     }
 
     return (
-      <Image
-        src={src}
+      <img
+        src={imageUrl}
         alt={alt}
-        {...props}
+        className={className}
         onError={() => setError(true)}
+        loading="lazy"
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     )
   }
@@ -194,9 +200,7 @@ function GalleryAdmin() {
                 <ImageWithFallback
                   src={image.image_url}
                   alt={image.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="rounded-md object-cover"
+                  className="rounded-md"
                 />
               </div>
             </CardContent>
