@@ -7,7 +7,6 @@ import { RowDataPacket } from 'mysql2'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-// Update CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -23,7 +22,6 @@ interface AdminUser extends RowDataPacket {
   last_login: Date;
 }
 
-// Handle OPTIONS preflight request
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
@@ -35,12 +33,14 @@ export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    const [user] = await pool.query(
+    // Fix: properly type the query result
+    const [rows] = await pool.query<AdminUser[]>(
       'SELECT * FROM admin_users WHERE username = ?',
       [username]
     )
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    // Check if user exists and verify password
+    if (!Array.isArray(rows) || rows.length === 0 || !(await bcrypt.compare(password, rows[0].password))) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { 
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       )
     }
 
+    const user = rows[0]
     const token = jwt.sign(
       { userId: user.id },
       process.env.JWT_SECRET!,
@@ -61,7 +62,6 @@ export async function POST(request: Request) {
       { headers: corsHeaders }
     )
 
-    // Set HTTP-only cookie
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: true,
