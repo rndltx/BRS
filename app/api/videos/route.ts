@@ -4,15 +4,6 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
-import { FtpClient } from '../../lib/ftp'
-
-// CORS configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
 
 interface Video extends RowDataPacket {
   id: number
@@ -26,32 +17,15 @@ interface Video extends RowDataPacket {
   deleted_at: string | null
 }
 
-const ftpClient = new FtpClient({
-  host: process.env.FTP_HOST!,
-  user: process.env.FTP_USER!,
-  password: process.env.FTP_PASSWORD!,
-  secure: process.env.FTP_SECURE === 'true'
-})
-
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
-
-// Handle OPTIONS request for CORS
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM videos WHERE deleted_at IS NULL ORDER BY created_at DESC'
     )
-    return NextResponse.json(rows, { headers: corsHeaders })
+    return NextResponse.json(rows)
   } catch (error) {
     console.error('Database error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch videos' }, 
-      { status: 500, headers: corsHeaders }
-    )
+    return NextResponse.json({ error: 'Failed to fetch videos' }, { status: 500 })
   }
 }
 
@@ -73,22 +47,7 @@ export async function POST(request: Request) {
     if (!title || !thumbnail || !video) {
       return NextResponse.json(
         { error: 'All fields are required' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
-
-    // Validate file sizes
-    if (thumbnail.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'Thumbnail file size must be less than 100MB' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
-
-    if (video.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'Video file size must be less than 100MB' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
@@ -100,25 +59,14 @@ export async function POST(request: Request) {
     const thumbnailPath = `/uploads/thumbnails/${thumbnailFilename}`
     const videoPath = `/uploads/videos/${videoFilename}`
 
-    const thumbnailAbsPath = path.join(process.cwd(), 'public', thumbnailPath)
-    await writeFile(thumbnailAbsPath, Buffer.from(await thumbnail.arrayBuffer()))
-    
-    // Upload thumbnail to FTP
-    try {
-      await ftpClient.uploadFile(thumbnailAbsPath, `/public_html${thumbnailPath}`)
-    } catch (ftpError) {
-      console.error('FTP thumbnail upload error:', ftpError)
-    }
-
-    const videoAbsPath = path.join(process.cwd(), 'public', videoPath)
-    await writeFile(videoAbsPath, Buffer.from(await video.arrayBuffer()))
-    
-    // Upload video to FTP
-    try {
-      await ftpClient.uploadFile(videoAbsPath, `/public_html${videoPath}`)  
-    } catch (ftpError) {
-      console.error('FTP video upload error:', ftpError)
-    }
+    await writeFile(
+      path.join(process.cwd(), 'public', thumbnailPath), 
+      Buffer.from(await thumbnail.arrayBuffer())
+    )
+    await writeFile(
+      path.join(process.cwd(), 'public', videoPath),
+      Buffer.from(await video.arrayBuffer())
+    )
 
     // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
@@ -139,15 +87,12 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newVideo[0], { 
-      status: 201, 
-      headers: corsHeaders 
-    })
+    return NextResponse.json(newVideo[0], { status: 201 })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save video' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
@@ -160,7 +105,7 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Video ID is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
@@ -173,7 +118,7 @@ export async function DELETE(request: Request) {
     if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404 }
       )
     }
 
@@ -189,30 +134,17 @@ export async function DELETE(request: Request) {
 
     if (existsSync(absoluteThumbPath)) {
       await unlink(absoluteThumbPath).catch(console.error)
-      // Delete from FTP
-      try {
-        await ftpClient.deleteFile(`/public_html${rows[0].thumbnail_url}`)
-      } catch (ftpError) {
-        console.error('FTP thumbnail deletion error:', ftpError)
-      }
     }
-    
     if (existsSync(absoluteVideoPath)) {
       await unlink(absoluteVideoPath).catch(console.error)
-      // Delete from FTP
-      try {
-        await ftpClient.deleteFile(`/public_html${rows[0].video_url}`)
-      } catch (ftpError) {
-        console.error('FTP video deletion error:', ftpError)
-      }
     }
 
-    return NextResponse.json({ message: 'Video deleted successfully' }, { headers: corsHeaders })
+    return NextResponse.json({ message: 'Video deleted successfully' })
   } catch (error) {
     console.error('Delete error:', error)
     return NextResponse.json(
       { error: 'Failed to delete video' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
@@ -229,7 +161,7 @@ export async function PUT(request: Request) {
     if (!id || !title) {
       return NextResponse.json(
         { error: 'ID and title are required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       );
     }
 
@@ -242,31 +174,12 @@ export async function PUT(request: Request) {
     if (!Array.isArray(existing) || existing.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404 }
       );
     }
 
     let thumbnailPath = existing[0].thumbnail_url;
     let videoPath = existing[0].video_url;
-
-    // Validate file sizes if new files are uploaded
-    if (thumbnail && thumbnail.size > 0) {
-      if (thumbnail.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: 'Thumbnail file size must be less than 100MB' },
-          { status: 400, headers: corsHeaders }
-        )
-      }
-    }
-
-    if (video && video.size > 0) {
-      if (video.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: 'Video file size must be less than 100MB' },
-          { status: 400, headers: corsHeaders }
-        )
-      }
-    }
 
     // Handle new thumbnail if uploaded
     if (thumbnail && thumbnail.size > 0) {
@@ -279,25 +192,10 @@ export async function PUT(request: Request) {
         Buffer.from(await thumbnail.arrayBuffer())
       );
 
-      // Upload to FTP
-      try {
-        await ftpClient.uploadFile(
-          path.join(process.cwd(), 'public', thumbnailPath),
-          `/public_html${thumbnailPath}`
-        )
-      } catch (ftpError) {
-        console.error('FTP thumbnail upload error:', ftpError)
-      }
-
       // Delete old thumbnail
       const oldThumbPath = path.join(process.cwd(), 'public', existing[0].thumbnail_url);
       if (existsSync(oldThumbPath)) {
         await unlink(oldThumbPath).catch(console.error);
-        try {
-          await ftpClient.deleteFile(`/public_html${existing[0].thumbnail_url}`)
-        } catch (ftpError) {
-          console.error('FTP thumbnail deletion error:', ftpError)
-        }
       }
     }
 
@@ -312,25 +210,10 @@ export async function PUT(request: Request) {
         Buffer.from(await video.arrayBuffer())
       );
 
-      // Upload to FTP
-      try {
-        await ftpClient.uploadFile(
-          path.join(process.cwd(), 'public', videoPath),
-          `/public_html${videoPath}`
-        )
-      } catch (ftpError) {
-        console.error('FTP video upload error:', ftpError)
-      }
-
       // Delete old video
       const oldVideoPath = path.join(process.cwd(), 'public', existing[0].video_url);
       if (existsSync(oldVideoPath)) {
         await unlink(oldVideoPath).catch(console.error);
-        try {
-          await ftpClient.deleteFile(`/public_html${existing[0].video_url}`)
-        } catch (ftpError) {
-          console.error('FTP video deletion error:', ftpError)
-        }
       }
     }
 
@@ -350,16 +233,16 @@ export async function PUT(request: Request) {
     if (!Array.isArray(updated) || updated.length === 0) {
       return NextResponse.json(
         { error: 'Failed to retrieve updated video' },
-        { status: 500, headers: corsHeaders }
+        { status: 500 }
       );
     }
 
-    return NextResponse.json(updated[0], { headers: corsHeaders });
+    return NextResponse.json(updated[0]);
   } catch (error) {
     console.error('Update error:', error);
     return NextResponse.json(
       { error: 'Failed to update video' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     );
   }
 }
@@ -372,7 +255,7 @@ export async function PATCH(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Video ID is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
@@ -391,16 +274,16 @@ export async function PATCH(request: Request) {
     if (!Array.isArray(updated) || updated.length === 0) {
       return NextResponse.json(
         { error: 'Video not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404 }
       )
     }
 
-    return NextResponse.json(updated[0], { headers: corsHeaders })
+    return NextResponse.json(updated[0])
   } catch (error) {
     console.error('View update error:', error)
     return NextResponse.json(
       { error: 'Failed to update view count' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }

@@ -2,14 +2,6 @@ import { NextResponse } from 'next/server'
 import pool from '../../lib/db'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
 
-// CORS configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
-
 interface DbSettings extends RowDataPacket {
   id: number;
   site_name: string;
@@ -27,11 +19,6 @@ interface Settings {
   theme: 'light' | 'dark' | 'system';
 }
 
-// Handle OPTIONS request for CORS
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
-}
-
 export async function GET() {
   try {
     const [rows] = await pool.query<DbSettings[]>('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
@@ -43,15 +30,15 @@ export async function GET() {
         phoneNumber: '+62 123 456 7890',
         address: 'Jakarta, Indonesia',
         theme: 'light'
-      }, { headers: corsHeaders })
+      })
     }
     
-    return NextResponse.json(rows[0], { headers: corsHeaders })
+    return NextResponse.json(rows[0])
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch settings' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
@@ -63,7 +50,7 @@ export async function POST(request: Request) {
     if (!settings.siteName || !settings.contactEmail) {
       return NextResponse.json(
         { error: 'Site name and contact email are required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
@@ -103,13 +90,13 @@ export async function POST(request: Request) {
     }
 
     const [updated] = await pool.query<DbSettings[]>('SELECT * FROM settings ORDER BY id DESC LIMIT 1')
-    return NextResponse.json(updated[0], { headers: corsHeaders })
+    return NextResponse.json(updated[0])
 
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to update settings' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }

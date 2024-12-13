@@ -8,8 +8,7 @@ import { Textarea } from "../../components/ui/textarea"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2 } from 'lucide-react'
-
-const API_BASE_URL = 'https://rizsign.my.id/api'
+import Image from 'next/image'
 
 interface Product {
   id: number;
@@ -30,17 +29,13 @@ function ProductsAdmin() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const response = await fetch('/api/products')
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
       const data = await response.json()
-      setProducts(data.filter((product: Product) => !product.deleted_at))
+      setProducts(data)
+      setIsLoading(false)
     } catch (error) {
       console.error('Error fetching products:', error)
       toast({
@@ -48,7 +43,6 @@ function ProductsAdmin() {
         description: "Failed to fetch products. Please try again.",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }, [toast])
@@ -65,22 +59,22 @@ function ProductsAdmin() {
 
     try {
       const url = editingProduct 
-        ? `${API_BASE_URL}/products/${editingProduct.id}` 
-        : `${API_BASE_URL}/products`
-      
+        ? `/api/products?id=${editingProduct.id}` 
+        : '/api/products'
       const method = editingProduct ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
-        method,
-        body: formData,
-        credentials: 'include'
+        method: method,
+        body: formData
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save product')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save product')
       }
 
+      const data = await response.json()
+      
       toast({
         title: "Success",
         description: `Product ${editingProduct ? 'updated' : 'added'} successfully.`,
@@ -89,11 +83,13 @@ function ProductsAdmin() {
       setEditingProduct(null)
       form.reset()
       fetchProducts()
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving product:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to save product',
+        description: error instanceof Error 
+          ? error.message 
+          : `Failed to ${editingProduct ? 'update' : 'add'} product.`,
         variant: "destructive",
       })
     } finally {
@@ -102,40 +98,33 @@ function ProductsAdmin() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) {
-      return
-    }
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      setIsLoading(true)
+      try {
+        const response = await fetch(`/api/products?id=${id}`, {
+          method: 'DELETE',
+        })
 
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+        if (!response.ok) {
+          throw new Error('Failed to delete product')
         }
-      })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to delete product')
+        toast({
+          title: "Success", 
+          description: "Product deleted successfully.",
+        })
+
+        fetchProducts()
+      } catch (error) {
+        console.error('Error deleting product:', error)
+        toast({
+          title: "Error",
+          description: "Failed to delete product. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
       }
-
-      toast({
-        title: "Success",
-        description: "Product deleted successfully.",
-      })
-
-      fetchProducts()
-    } catch (error) {
-      console.error('Error deleting product:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete product",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -185,13 +174,13 @@ function ProductsAdmin() {
             <CardContent>
               <div className="relative aspect-video w-full mb-4">
                 {product.image_url && (
-                  <img
-                    src={product.image_url.startsWith('http') 
-                      ? product.image_url 
-                      : `${API_BASE_URL}${product.image_url}`}
+                  <Image
+                    src={product.image_url}
                     alt={product.name}
-                    className="absolute inset-0 w-full h-full rounded-md object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="rounded-md object-cover"
+                    priority={false}
                   />
                 )}
               </div>

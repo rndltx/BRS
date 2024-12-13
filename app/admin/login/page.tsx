@@ -6,17 +6,6 @@ import Logo from '../../components/Logo'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-const API_BASE_URL = 'https://rizsign.my.id/api'
-
-// CORS headers configuration
-const corsHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
-
 interface LoginResponse {
   success: boolean;
   token?: string;
@@ -27,27 +16,18 @@ export default function AdminLogin() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setIsLoading(true)
 
     try {
-      // First, send OPTIONS request
-      await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'OPTIONS',
-        headers: corsHeaders,
-        credentials: 'include'
-      })
-
-      // Then send actual login request
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: corsHeaders,
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ username, password }),
       })
 
@@ -57,18 +37,13 @@ export default function AdminLogin() {
         throw new Error(data.error || 'Login failed')
       }
 
-      if (data.success) {
-        if (data.token) {
-          localStorage.setItem('adminToken', data.token)
-        }
+      if (data.success && data.token) {
+        localStorage.setItem('adminToken', data.token)
         router.push('/admin/dashboard')
-        router.refresh()
       }
     } catch (error) {
       console.error('Login error:', error)
       setError('Invalid username or password')
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -129,12 +104,9 @@ export default function AdminLogin() {
 
             <button
               type="submit"
-              disabled={isLoading}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
-                isLoading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transform transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              Sign in
             </button>
           </form>
         </div>

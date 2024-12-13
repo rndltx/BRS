@@ -7,13 +7,6 @@ import { RowDataPacket } from 'mysql2'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
-
 interface AdminUser extends RowDataPacket {
   id: number;
   username: string;
@@ -22,65 +15,61 @@ interface AdminUser extends RowDataPacket {
   last_login: Date;
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: corsHeaders
-  })
-}
-
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    // Fix: properly type the query result
+    // Get user from database
     const [rows] = await pool.query<AdminUser[]>(
       'SELECT * FROM admin_users WHERE username = ?',
       [username]
     )
 
-    // Check if user exists and verify password
-    if (!Array.isArray(rows) || rows.length === 0 || !(await bcrypt.compare(password, rows[0].password))) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
-        { 
-          status: 401,
-          headers: corsHeaders
-        }
+        { status: 401 }
       )
     }
 
     const user = rows[0]
+
+    // Verify password
+    const isValid = await bcrypt.compare(password, user.password)
+    
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET!,
+      { 
+        userId: user.id,
+        username: user.username 
+      },
+      JWT_SECRET,
       { expiresIn: '24h' }
     )
 
-    const response = NextResponse.json(
-      { success: true, token },
-      { headers: corsHeaders }
+    // Update last login
+    await pool.query(
+      'UPDATE admin_users SET last_login = NOW() WHERE id = ?',
+      [user.id]
     )
 
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: 86400,
-      path: '/',
-      domain: 'rizsign.my.id'
+    return NextResponse.json({
+      success: true,
+      token,
     })
-
-    return response
 
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json(
       { error: 'Authentication failed' },
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
+      { status: 500 }
     )
   }
 }

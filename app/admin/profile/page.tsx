@@ -159,4 +159,3 @@ function AdminProfile() {
 }
 
 export default withAuth(AdminProfile)
-

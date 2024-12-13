@@ -4,15 +4,6 @@ import path from 'path'
 import pool from '../../lib/db'
 import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
-import { FtpClient } from '../../lib/ftp'
-
-// CORS configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
 
 interface OrderResult extends RowDataPacket {
   maxOrder: number;
@@ -27,63 +18,53 @@ interface SlideshowImage extends RowDataPacket {
   updated_at: string;
 }
 
-const ftpClient = new FtpClient({
-  host: process.env.FTP_HOST!,
-  user: process.env.FTP_USER!,
-  password: process.env.FTP_PASSWORD!,
-  secure: process.env.FTP_SECURE === 'true'
-})
-
-// Handle OPTIONS request for CORS
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
-}
-
 export async function GET() {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM slideshow WHERE active = 1 ORDER BY display_order ASC, created_at DESC'
     )
-    return NextResponse.json(rows, { headers: corsHeaders })
+    return NextResponse.json(rows)
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch slideshow images' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'slideshow')
+    await mkdir(uploadDir, { recursive: true })
+
     const formData = await request.formData()
     const image = formData.get('image') as File
 
     if (!image) {
       return NextResponse.json(
         { error: 'No image provided' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
+    // Save image file
     const timestamp = Date.now()
     const filename = `${timestamp}-${image.name.replaceAll(' ', '_')}`
     const relativePath = `/uploads/slideshow/${filename}`
-    const fullRemotePath = `/public_html${relativePath}`
+    
+    await writeFile(
+      path.join(process.cwd(), 'public', relativePath),
+      Buffer.from(await image.arrayBuffer())
+    )
 
-    try {
-      const buffer = Buffer.from(await image.arrayBuffer())
-      await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
-    } catch (ftpError) {
-      console.error('FTP upload error:', ftpError)
-      throw ftpError
-    }
-
+    // Get max display order with proper typing
     const [orderResult] = await pool.query<OrderResult[]>(
       'SELECT COALESCE(MAX(display_order), -1) as maxOrder FROM slideshow'
     )
     const nextOrder = (orderResult[0].maxOrder + 1)
 
+    // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO slideshow (
         image_url, 
@@ -98,15 +79,12 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newImage[0], { 
-      status: 201,
-      headers: corsHeaders 
-    })
+    return NextResponse.json(newImage[0], { status: 201 })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save image' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
@@ -119,10 +97,11 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: 'Image ID is required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
+    // Get image info
     const [rows]: any = await pool.query(
       'SELECT * FROM slideshow WHERE id = ?',
       [id]
@@ -131,27 +110,25 @@ export async function DELETE(request: Request) {
     if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Image not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404 }
       )
     }
 
-    try {
-      await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
-    } catch (ftpError) {
-      console.error('FTP deletion error:', ftpError)
+    // Delete file
+    const absolutePath = path.join(process.cwd(), 'public', rows[0].image_url)
+    if (existsSync(absolutePath)) {
+      await unlink(absolutePath)
     }
 
+    // Delete from database
     await pool.query('DELETE FROM slideshow WHERE id = ?', [id])
 
-    return NextResponse.json(
-      { message: 'Image deleted successfully' },
-      { headers: corsHeaders }
-    )
+    return NextResponse.json({ message: 'Image deleted successfully' })
   } catch (error) {
     console.error('Delete error:', error)
     return NextResponse.json(
       { error: 'Failed to delete image' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }

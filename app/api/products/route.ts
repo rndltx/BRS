@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
+import { writeFile, mkdir, unlink } from 'fs/promises'
 import path from 'path'
 import pool from '../../lib/db'
+import { existsSync } from 'fs'
 import { RowDataPacket, ResultSetHeader } from 'mysql2'
-import { FtpClient } from '../../lib/ftp'
-
-// CORS configuration
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://brs.rizsign.my.id',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Credentials': 'true',
-}
 
 interface Product extends RowDataPacket {
   id: number;
@@ -23,27 +16,16 @@ interface Product extends RowDataPacket {
   deleted_at: string | null;
 }
 
-// Helper functions
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'products')
+
+// Helper to validate image URLs and file types
 const isValidImageType = (type: string) => {
   return ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(type)
 }
 
 const getFileExtension = (filename: string) => {
   const ext = path.extname(filename).toLowerCase()
-  return ext || '.jpg'
-}
-
-const ftpClient = new FtpClient({
-  host: process.env.FTP_HOST!,
-  user: process.env.FTP_USER!,
-  password: process.env.FTP_PASSWORD!,
-  secure: true,
-  port: 21
-})
-
-// Handle OPTIONS request for CORS
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
+  return ext || '.jpg' // Default to .jpg if no extension
 }
 
 export async function GET() {
@@ -51,18 +33,20 @@ export async function GET() {
     const [rows] = await pool.query<Product[]>(
       'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id DESC'
     )
-    return NextResponse.json(rows, { headers: corsHeaders })
+    return NextResponse.json(rows)
   } catch (error) {
     console.error('Database error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch products' }, 
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
 
 export async function POST(request: Request) {
   try {
+    await mkdir(UPLOAD_DIR, { recursive: true })
+
     const formData = await request.formData()
     const name = formData.get('name') as string
     const description = formData.get('description') as string
@@ -71,33 +55,33 @@ export async function POST(request: Request) {
     if (!name || !description || !image) {
       return NextResponse.json(
         { error: 'Name, description and image are required' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
+    // Validate image type
     if (!isValidImageType(image.type)) {
       return NextResponse.json(
         { error: 'Invalid image type. Supported formats: JPG, PNG, GIF, WebP' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       )
     }
 
-    const buffer = Buffer.from(await image.arrayBuffer())
+    // Create filename with proper extension
     const ext = getFileExtension(image.name)
     const filename = `${Date.now()}-${image.name.replace(/\.[^/.]+$/, '')}${ext}`
     const relativePath = `/uploads/products/${filename}`
-    const fullRemotePath = `/public_html${relativePath}`
+    const absolutePath = path.join(process.cwd(), 'public', relativePath)
 
-    try {
-      await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
-    } catch (ftpError) {
-      console.error('FTP upload error:', ftpError)
-      throw ftpError
-    }
+    // Save image
+    const buffer = Buffer.from(await image.arrayBuffer())
+    await writeFile(absolutePath, buffer)
 
+    // Save to database with proper typing
     const [result] = await pool.query<ResultSetHeader>(
-      `INSERT INTO products (name, description, image_url, active, created_at, updated_at) 
-       VALUES (?, ?, ?, 1, NOW(), NOW())`,
+      `INSERT INTO products (
+        name, description, image_url, active, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, NOW(), NOW())`,
       [name, description, relativePath]
     )
 
@@ -106,15 +90,12 @@ export async function POST(request: Request) {
       [result.insertId]
     )
 
-    return NextResponse.json(newProduct[0], { 
-      status: 201, 
-      headers: corsHeaders 
-    })
+    return NextResponse.json(newProduct[0], { status: 201 })
   } catch (error) {
     console.error('Server error:', error)
     return NextResponse.json(
       { error: 'Failed to save product' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     )
   }
 }
@@ -125,7 +106,7 @@ export async function PUT(request: Request) {
     const id = url.searchParams.get('id')
     
     if (!id) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400, headers: corsHeaders })
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
     }
 
     const formData = await request.formData()
@@ -140,31 +121,26 @@ export async function PUT(request: Request) {
     )
 
     if (!Array.isArray(existing) || existing.length === 0) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404, headers: corsHeaders })
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     let imagePath = existing[0].image_url
 
+    // Handle new image if provided
     if (image) {
       const buffer = Buffer.from(await image.arrayBuffer())
       const ext = getFileExtension(image.name)
       const filename = `${Date.now()}-${image.name.replace(/\.[^/.]+$/, '').replaceAll(' ', '_')}${ext}`
       imagePath = `/uploads/products/${filename}`
-      const fullRemotePath = `/public_html${imagePath}`
+      const absolutePath = path.join(process.cwd(), 'public', imagePath)
 
-      // Upload new image to FTP
-      try {
-        await ftpClient.uploadFromBuffer(buffer, fullRemotePath)
-      } catch (ftpError) {
-        console.error('FTP upload error:', ftpError)
-        throw ftpError
-      }
+      await mkdir(UPLOAD_DIR, { recursive: true })
+      await writeFile(absolutePath, buffer)
 
-      // Delete old image from FTP
-      try {
-        await ftpClient.deleteFile(`/public_html${existing[0].image_url}`)
-      } catch (ftpError) {
-        console.error('FTP deletion error:', ftpError)
+      // Delete old image
+      const oldPath = path.join(process.cwd(), 'public', existing[0].image_url)
+      if (existsSync(oldPath)) {
+        await unlink(oldPath).catch(console.error)
       }
     }
 
@@ -179,11 +155,11 @@ export async function PUT(request: Request) {
       [id]
     )
 
-    return NextResponse.json(updated[0], { headers: corsHeaders })
+    return NextResponse.json(updated[0])
 
   } catch (error) {
     console.error('Update error:', error)
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
   }
 }
 
@@ -193,7 +169,7 @@ export async function DELETE(request: Request) {
     const id = url.searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'Product ID is required' }, { status: 400, headers: corsHeaders })
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
     }
 
     // Check if product exists
@@ -203,14 +179,7 @@ export async function DELETE(request: Request) {
     )
 
     if (!rows || rows.length === 0) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404, headers: corsHeaders })
-    }
-
-    // Delete from FTP first
-    try {
-      await ftpClient.deleteFile(`/public_html${rows[0].image_url}`)
-    } catch (ftpError) {
-      console.error('FTP deletion error:', ftpError)
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     // Soft delete in database
@@ -219,9 +188,15 @@ export async function DELETE(request: Request) {
       [id]
     )
 
-    return NextResponse.json({ message: 'Product deleted successfully' }, { headers: corsHeaders })
+    // Optionally delete file
+    const absolutePath = path.join(process.cwd(), 'public', rows[0].image_url)
+    if (existsSync(absolutePath)) {
+      await unlink(absolutePath).catch(console.error)
+    }
+
+    return NextResponse.json({ message: 'Product deleted successfully' })
   } catch (error) {
     console.error('Delete error:', error)
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
   }
 }

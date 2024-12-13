@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import { Trash2, Upload } from 'lucide-react'
 import { withAuth } from '../../components/withAuth'
 import { Button } from "../../components/ui/button"
 import { useToast } from "../../components/ui/use-toast"
-
-const API_BASE_URL = 'https://rizsign.my.id/api'
 
 interface SlideshowImage {
   id: number;
@@ -27,17 +26,13 @@ function SlideshowAdmin() {
 
   const fetchImages = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/slideshow`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const response = await fetch('/api/slideshow')
       if (!response.ok) {
         throw new Error('Failed to fetch images')
       }
       const data = await response.json()
       setImages(data)
+      setIsLoading(false)
     } catch (error) {
       console.error('Error fetching images:', error)
       toast({
@@ -45,7 +40,6 @@ function SlideshowAdmin() {
         description: "Failed to fetch images. Please try again.",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }, [toast])
@@ -67,15 +61,13 @@ function SlideshowAdmin() {
     formData.append('image', file)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/slideshow`, {
+      const response = await fetch('/api/slideshow', {
         method: 'POST',
         body: formData,
-        credentials: 'include'
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to upload image')
+        throw new Error('Failed to upload image')
       }
 
       toast({
@@ -86,7 +78,7 @@ function SlideshowAdmin() {
     } catch (err) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to upload image",
+        description: "Failed to upload image",
         variant: "destructive",
       })
     } finally {
@@ -103,17 +95,12 @@ function SlideshowAdmin() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/slideshow/${imageId}`, {
+      const response = await fetch(`/api/slideshow?id=${imageId}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to delete image')
+        throw new Error('Failed to delete image')
       }
 
       toast({
@@ -124,7 +111,7 @@ function SlideshowAdmin() {
     } catch (err) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to delete image",
+        description: "Failed to delete image",
         variant: "destructive",
       })
     }
@@ -159,7 +146,7 @@ function SlideshowAdmin() {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {images.map((image) => (
+        {images.map((image, index) => (
           <motion.div
             key={image.id}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -168,17 +155,18 @@ function SlideshowAdmin() {
             className="relative group"
           >
             <div className="relative aspect-video w-full overflow-hidden rounded-lg shadow-md">
-              <img
-                src={image.image_url.startsWith('https') 
-                  ? image.image_url 
-                  : `${API_BASE_URL}${image.image_url}`}
+              <Image
+                src={image.image_url}
                 alt={`Slideshow image ${image.id}`}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                priority={index === 0}
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               <Button
                 variant="destructive"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 h-8 w-8"
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 h-8 w-8" // Add explicit sizing classes
                 onClick={() => handleImageDelete(image.id)}
               >
                 <Trash2 className="h-4 w-4" />

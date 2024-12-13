@@ -7,26 +7,25 @@ import { Button } from "../../components/ui/button"
 import { Textarea } from "../../components/ui/textarea"
 import { useToast } from "../../components/ui/use-toast"
 
-const API_BASE_URL = 'https://rizsign.my.id/api'
-
 function VisionMissionAdmin() {
   const [visionMission, setVisionMission] = useState({ vision: '', mission: '' })
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
+  useEffect(() => {
+    fetchVisionMission()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const fetchVisionMission = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/vision-mission`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const response = await fetch('/api/vision-mission')
       if (!response.ok) {
         throw new Error('Failed to fetch vision & mission')
       }
       const data = await response.json()
       setVisionMission(data)
+      setIsLoading(false)
     } catch (error) {
       console.error('Error fetching vision & mission:', error)
       toast({
@@ -34,15 +33,9 @@ function VisionMissionAdmin() {
         description: "Failed to fetch vision & mission. Please try again.",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }
-
-  useEffect(() => {
-    fetchVisionMission()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -53,12 +46,11 @@ function VisionMissionAdmin() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/vision-mission`, {
-        method: 'PUT',
+      const response = await fetch('/api/vision-mission', {
+        method: 'PUT', // Change to PUT
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(visionMission),
       })
 
@@ -87,11 +79,7 @@ function VisionMissionAdmin() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    )
+    return <div>Loading...</div>
   }
 
   return (

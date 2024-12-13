@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/input"
 import { useToast } from "../../components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Edit, Trash2, ImageOff } from 'lucide-react'
+import Image from 'next/image'
 
 interface GalleryImage {
   id: number
@@ -17,8 +18,6 @@ interface GalleryImage {
   deleted_at: string | null
 }
 
-const API_BASE_URL = 'https://rizsign.my.id/api'
-
 function GalleryAdmin() {
   const [images, setImages] = useState<GalleryImage[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -27,12 +26,7 @@ function GalleryAdmin() {
 
   const fetchImages = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/gallery`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const response = await fetch('/api/gallery')
       if (!response.ok) {
         throw new Error('Failed to fetch gallery images')
       }
@@ -62,15 +56,14 @@ function GalleryAdmin() {
 
     try {
       const url = editingImage 
-        ? `${API_BASE_URL}/gallery/${editingImage.id}` 
-        : `${API_BASE_URL}/gallery`
+        ? `/api/gallery?id=${editingImage.id}` 
+        : '/api/gallery'
       
       const method = editingImage ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
         body: formData,
-        credentials: 'include'
       })
 
       if (!response.ok) {
@@ -105,12 +98,8 @@ function GalleryAdmin() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/gallery/${id}`, {
+      const response = await fetch(`/api/gallery?id=${id}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
       })
 
       if (!response.ok) {
@@ -136,26 +125,23 @@ function GalleryAdmin() {
     }
   }
 
-  const ImageWithFallback = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
+  const ImageWithFallback = ({ src, alt, ...props }: any) => {
     const [error, setError] = useState(false)
-    const imageUrl = src.startsWith('http') ? src : `${API_BASE_URL}${src}`
 
     if (error || !src) {
       return (
-        <div className="flex items-center justify-center h-full bg-gray-100 dark:bg-gray-800 rounded-md">
+        <div className="flex items-center justify-center h-full bg-gray-100 rounded-md">
           <ImageOff className="w-12 h-12 text-gray-400" />
         </div>
       )
     }
 
     return (
-      <img
-        src={imageUrl}
+      <Image
+        src={src}
         alt={alt}
-        className={className}
+        {...props}
         onError={() => setError(true)}
-        loading="lazy"
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     )
   }
@@ -208,7 +194,9 @@ function GalleryAdmin() {
                 <ImageWithFallback
                   src={image.image_url}
                   alt={image.title}
-                  className="rounded-md"
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="rounded-md object-cover"
                 />
               </div>
             </CardContent>
